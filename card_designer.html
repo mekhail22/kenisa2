@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Card Designer (Streamlit CCv2 source)</title>
+<style>
+.cd-root {
+    margin: 0;
+    font-family: 'Cairo', 'Segoe UI', sans-serif;
+    background: #f8fafc;
+    direction: rtl;
+    color: #1e293b;
+    width: 100%;
+}
+.cd-root #hint {
+    padding: 6px 10px; font-size: 12px; color: #475569; text-align: center;
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom: 8px;
+}
+.cd-root #stage {
+    position: relative; display: inline-block; max-width: 100%; user-select: none; touch-action: none;
+}
+.cd-root #stage img {
+    display: block; width: 100%; height: auto; border-radius: 8px; pointer-events: auto;
+}
+.cd-root .rect {
+    position: absolute; border: 2px dashed #2563eb; background: rgba(37, 99, 235, 0.14);
+    cursor: move; box-sizing: border-box; z-index: 10;
+}
+.cd-root .rect.active {
+    border-color: #dc2626; border-style: solid; background: rgba(220, 38, 38, 0.16); z-index: 20;
+}
+.cd-root .rect .lbl {
+    position: absolute; top: -22px; right: 0; font-size: 12px; color: #1d4ed8;
+    font-weight: 700; white-space: nowrap; background: rgba(255,255,255,0.92);
+    padding: 1px 6px; border-radius: 4px; pointer-events: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.cd-root .rect.active .lbl {
+    color: #dc2626; background: rgba(255,255,255,0.95);
+}
+.cd-root .handle {
+    position: absolute; width: 14px; height: 14px; background: #2563eb;
+    border: 2px solid #fff; border-radius: 50%; right: -7px; bottom: -7px; cursor: se-resize;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 25;
+}
+.cd-root .rect.active .handle {
+    background: #dc2626;
+}
+.cd-root #ghost {
+    position: absolute; border: 2px dashed #16a34a; background: rgba(22, 163, 74, 0.16);
+    display: none; pointer-events: none; box-sizing: border-box; z-index: 30;
+}
+</style>
+</head>
+<body>
+<div id="hint">🖱️ اسحب على الصورة لرسم مكان العنصر المختار &bull; اسحب المستطيل لتحريكه &bull; النقطة بالزاوية لتغيير الحجم</div>
+<div id="stage">
+    <img id="img" draggable="false" alt="">
+    <div id="ghost"></div>
+</div>
+<script>
+export default function (component) {
+    const { data, parentElement, setTriggerValue } = component;
+    if (!parentElement) return;
+
+    // Clean up any previously attached instance to prevent duplicate DOM elements or event listeners
+    if (parentElement.__cardDesignerCleanup) {
+        parentElement.__cardDesignerCleanup();
+        parentElement.__cardDesignerCleanup = null;
+    }
+
+    // Remove any leftover children in parentElement
+    while (parentElement.firstChild) {
+        parentElement.removeChild(parentElement.firstChild);
+    }
+
+    // Build the UI inside the component root
+    const root = document.createElement("div");
+    root.className = "cd-root";
+    parentElement.appendChild(root);
+    root.innerHTML =
+        '<div id="hint">🖱️ اسحب على الصورة لرسم مكان العنصر المختار &bull; اسحب المستطيل لتحريكه &bull; النقطة بالزاوية لتغيير الحجم</div>' +
+        '<div id="stage">' +
+        '<img id="img" draggable="false" alt="">' +
+        '<div id="ghost"></div>' +
+        '</div>';
+
+    const img = root.querySelector("#img");
+    const stage = root.querySelector("#stage");
+    const ghost = root.querySelector("#ghost");
+
+    const elements = (data && data.elements) || {};
+    const labels = (data && data.labels) || {};
+    const selectedKey = (data && data.selected_key) || "";
+    if (data && data.image) {
+        img.src = data.image;
+    }
+
+    let mode = null;          // "draw" | "move" | "resize"
+    let dragKey = null;
+    let dragEl = null;
+    let sx = 0, sy = 0;
+    let orig = null;
+    let curRect = null;
+    let moved = false;
+
+    function emit(payload) {
+        if (typeof setTriggerValue === "function") {
+            setTriggerValue("action", payload);
+        }
+    }
+
+    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+    function rel(e) {
+        const r = img.getBoundingClientRect();
+        if (!r.width || !r.height) return { x: 0, y: 0 };
+        return {
+            x: clamp01((e.clientX - r.left) / r.width),
+            y: clamp01((e.clientY - r.top) / r.height)
+        };
+    }
+
+    function applyStyle(el, rect) {
+        if (!el || !rect) return;
+        el.style.left = (rect.x * 100) + "%";
+        el.style.top = (rect.y * 100) + "%";
+        el.style.width = (rect.w * 100) + "%";
+        el.style.height = (rect.h * 100) + "%";
+    }
+
+    function renderRects() {
+        const olds = stage.querySelectorAll(".rect");
+        for (let i = 0; i < olds.length; i++) {
+            olds[i].remove();
+        }
+        Object.keys(elements).forEach(function (k) {
+            const s = elements[k];
+            if (!s || typeof s.x !== "number" || typeof s.y !== "number") return;
+            const d = document.createElement("div");
+            d.className = "rect" + (k === selectedKey ? " active" : "");
+            d.setAttribute("data-key", k);
+            applyStyle(d, s);
+
+            const lbl = document.createElement("span");
+            lbl.className = "lbl";
+            lbl.textContent = labels[k] || k;
+            d.appendChild(lbl);
+
+            const hd = document.createElement("div");
+            hd.className = "handle";
+            hd.setAttribute("title", "تغيير الحجم");
+            hd.addEventListener("mousedown", function (ev) {
+                ev.stopPropagation();
+                ev.preventDefault();
+                startDrag(ev, k, "resize", d);
+            });
+            d.appendChild(hd);
+
+            d.addEventListener("mousedown", function (ev) {
+                ev.stopPropagation();
+                ev.preventDefault();
+                startDrag(ev, k, "move", d);
+            });
+
+            stage.appendChild(d);
+        });
+    }
+
+    function startDrag(ev, key, m, el) {
+        mode = m;
+        dragKey = key;
+        dragEl = el;
+        moved = false;
+        const p = rel(ev);
+        sx = p.x;
+        sy = p.y;
+        orig = Object.assign({}, elements[key] || { x: p.x, y: p.y, w: 0.2, h: 0.1 });
+        curRect = null;
+    }
+
+    function onMouseDown(ev) {
+        // Only start drawing when clicking the image itself (not an existing rect or handle)
+        if (ev.target !== img) return;
+        if (!selectedKey) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        mode = "draw";
+        dragKey = selectedKey;
+        dragEl = null;
+        moved = false;
+        const p = rel(ev);
+        sx = p.x;
+        sy = p.y;
+        curRect = { x: sx, y: sy, w: 0, h: 0 };
+        ghost.style.display = "block";
+        applyStyle(ghost, curRect);
+    }
+
+    function onMouseMove(ev) {
+        if (!mode) return;
+        const p = rel(ev);
+        const dist = Math.hypot(p.x - sx, p.y - sy);
+        if (dist > 0.002) {
+            moved = true;
+        }
+        if (mode === "draw") {
+            const x1 = Math.min(sx, p.x);
+            const y1 = Math.min(sy, p.y);
+            const x2 = Math.max(sx, p.x);
+            const y2 = Math.max(sy, p.y);
+            curRect = {
+                x: clamp01(x1),
+                y: clamp01(y1),
+                w: clamp01(x2 - x1),
+                h: clamp01(y2 - y1)
+            };
+            applyStyle(ghost, curRect);
+        } else if (mode === "move" && orig) {
+            const dx = p.x - sx;
+            const dy = p.y - sy;
+            const nx = Math.max(0, Math.min(1.0 - orig.w, orig.x + dx));
+            const ny = Math.max(0, Math.min(1.0 - orig.h, orig.y + dy));
+            curRect = {
+                x: nx,
+                y: ny,
+                w: orig.w,
+                h: orig.h
+            };
+            if (dragEl) applyStyle(dragEl, curRect);
+        } else if (mode === "resize" && orig) {
+            const nw = Math.max(0.005, Math.min(1.0 - orig.x, p.x - orig.x));
+            const nh = Math.max(0.005, Math.min(1.0 - orig.y, p.y - orig.y));
+            curRect = {
+                x: orig.x,
+                y: orig.y,
+                w: nw,
+                h: nh
+            };
+            if (dragEl) applyStyle(dragEl, curRect);
+        }
+    }
+
+    function onMouseUp(ev) {
+        if (!mode) return;
+        ghost.style.display = "none";
+        const currentMode = mode;
+        const targetKey = dragKey;
+        const didMove = moved;
+        const finalRect = curRect;
+
+        mode = null;
+        dragKey = null;
+        dragEl = null;
+        orig = null;
+        curRect = null;
+        moved = false;
+
+        if (currentMode === "draw") {
+            if (finalRect && finalRect.w > 0.005 && finalRect.h > 0.005 && targetKey) {
+                emit({ action: "update", key: targetKey, rect: finalRect });
+            }
+        } else if (!didMove) {
+            // Simple click on an existing element => select it
+            if (targetKey) {
+                emit({ action: "select", key: targetKey });
+            }
+        } else if (finalRect && targetKey) {
+            emit({ action: "update", key: targetKey, rect: finalRect });
+        }
+    }
+
+    function onImgLoad() {
+        renderRects();
+    }
+
+    stage.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    img.addEventListener("load", onImgLoad);
+    if (img.complete && img.naturalWidth > 0) {
+        renderRects();
+    }
+
+    function cleanup() {
+        if (stage) stage.removeEventListener("mousedown", onMouseDown);
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        if (img) img.removeEventListener("load", onImgLoad);
+        if (root.parentNode) root.parentNode.removeChild(root);
+    }
+
+    parentElement.__cardDesignerCleanup = cleanup;
+    return cleanup;
+}
+</script>
+</body>
+</html>
