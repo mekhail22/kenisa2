@@ -98,7 +98,7 @@ def generate_student_code(db=None, existing_codes=None):
                 used_codes = set(students_df["student_code"].dropna().astype(str).str.strip().tolist())
         except Exception:
             pass
-    
+
     # استخراج الأرقام من الأكواد الموجودة
     max_num = 0
     for code in used_codes:
@@ -109,7 +109,7 @@ def generate_student_code(db=None, existing_codes=None):
                 max_num = max(max_num, num)
             except ValueError:
                 pass
-    
+
     # توليد كود جديد بالرقم التالي
     next_num = max_num + 1
     return f"STU{next_num:06d}"
@@ -458,7 +458,7 @@ def get_design_css():
             border-right: none !important;
             box-shadow: -2px 0 8px rgba(0,0,0,0.05) !important;
         }}
-        
+
         /* Full screen sidebar overlay for mobile */
         @media (max-width: 768px) {{
             section[data-testid="stSidebar"] {{
@@ -1051,7 +1051,7 @@ def empty_state(message, icon="📭"):
 def under_development_page(title, subtitle, message, button_label="العودة إلى لوحة التحكم", button_key=None, features=None):
     """
     Render a premium Arabic 'Under Development' page with RTL support, Cairo font, soft animations, and Bootstrap 5 styling.
-    
+
     Args:
         title: Main title for the page
         subtitle: Subtitle below the title
@@ -1070,7 +1070,7 @@ def under_development_page(title, subtitle, message, button_label="العودة 
         for feat in features:
             features_html += f"<li>✅ {feat}</li>"
         features_html += "</ul>"
-    
+
     # Replace message with features if provided
     if features_html:
         message = features_html
@@ -1287,7 +1287,7 @@ def get_client_info():
     تجميع معلومات العميل: IP، الموقع، المتصفح، نظام التشغيل، نوع الجهاز.
     """
     info = _get_client_ip_and_location()
-    
+
     # محاولة الحصول على User-Agent من streamlit_js_eval
     ua_string = ""
     try:
@@ -1299,7 +1299,7 @@ def get_client_info():
             ua_string = ua_result.get("userAgent", "")
     except Exception:
         pass
-    
+
     # إذا لم نتمكن من الحصول على User-Agent من JS، نستخدم طريقة بديلة
     if not ua_string:
         try:
@@ -1596,7 +1596,7 @@ class Database:
         students = self.get_students()
         if students.empty:
             return 0, "لا توجد طالبات"
-        
+
         updated = False
         count = 0
         for idx, row in students.iterrows():
@@ -1610,7 +1610,7 @@ class Database:
                     students.at[idx, k] = v
                 count += 1
                 updated = True
-        
+
         # التأكد من وجود عمود profile_edit_used وعمود المرحلة stage_id
         if "profile_edit_used" not in students.columns:
             students["profile_edit_used"] = ""
@@ -2113,7 +2113,7 @@ class Database:
     def add_audit_log(self, action, details="", user_info=None, client_info=None):
         """
         إضافة سجل تدقيق جديد إلى ورقة AuditLog.
-        
+
         Parameters:
         - action: نوع العملية (مثل "تسجيل دخول", "إضافة عضو", ...)
         - details: تفاصيل إضافية عن العملية
@@ -2124,7 +2124,7 @@ class Database:
             user_info = st.session_state.get("user", {}) if "user" in st.session_state else {}
         if client_info is None:
             client_info = get_client_info()
-        
+
         username = user_info.get("username", "") if isinstance(user_info, dict) else ""
         user_id = user_info.get("user_id", "") if isinstance(user_info, dict) else ""
         # إذا كان user_info هو مجرد user_id string
@@ -2142,7 +2142,7 @@ class Database:
                             username = match.iloc[0].get("username", "")
             except Exception:
                 pass
-        
+
         log_entry = {
             "log_id": str(uuid.uuid4()),
             "timestamp": get_cairo_now().isoformat(),
@@ -2158,7 +2158,7 @@ class Database:
             "device_type": client_info.get("device_type", ""),
             "screen_size": client_info.get("screen_size", "")
         }
-        
+
         df = self.get_audit_log()
         if df.empty:
             df = pd.DataFrame(columns=AUDIT_LOG_COLUMNS)
@@ -2311,24 +2311,24 @@ class Database:
         questions = self.get_exam_questions(exam_id)
         if questions.empty:
             return 0, 0, 0, 0
-        
+
         correct_count = 0
         wrong_count = 0
         total_marks = 0
-        
+
         for _, q_row in questions.iterrows():
             q = q_row.to_dict()
             q_id = q.get("question_id", "")
             correct = str(q.get("correct_answer", "")).strip().lower()
             student_ans = str(answers_dict.get(q_id, "")).strip().lower()
             marks = float(q.get("marks", 1)) if q.get("marks") else 1
-            
+
             total_marks += marks
             if correct == student_ans:
                 correct_count += 1
             else:
                 wrong_count += 1
-        
+
         score = correct_count  # Each correct answer gets its marks
         return score, total_marks, correct_count, wrong_count
 
@@ -2341,7 +2341,7 @@ class Database:
         questions = self.get_exam_questions(exam_id)
         if questions.empty:
             return pd.DataFrame()
-        
+
         shuffled = questions.sample(frac=1).reset_index(drop=True)
         return shuffled
 
@@ -2553,9 +2553,8 @@ def student_logout(db=None):
             db.add_log(student_id, "تسجيل خروج طالبة", f"تم تسجيل خروج الطالبة: {student.get('full_name', '')}")
         except Exception:
             pass
-    student_keys = [
+        student_keys = [
         "student_logged_in", "current_student", "student_dashboard_page", "sidebar_open",
-        "selected_login_role",
     ] + ASSESSMENT_SESSION_KEYS + [
         "quiz_question_index", "quiz_answers", "quiz_end_time", "quiz_attempt_id",
         "quiz_last_saved_answers", "quiz_confirm_finish", "quiz_start_time",
@@ -2781,52 +2780,158 @@ def auto_fix_missing_sections(db):
 # =============================================================================
 # Initialization & Login
 # =============================================================================
+def _ensure_predefined_accounts(db):
+    """
+    Ensure that predefined shortcut accounts exist for each of the five roles.
+    Creates accounts only if they do not already exist. Passwords are hashed
+    before storage. Safe to call repeatedly.
+    """
+    users = db.get_users()
+    existing_ids = set(users["user_id"].tolist()) if not users.empty and "user_id" in users.columns else set()
+
+    predefined_staff = [
+        {"user_id": "admin-001",   "username": "admin",   "role": "System Admin",   "full_name": "مدير النظام",     "password": "admin123"},
+        {"user_id": "priest-001",  "username": "priest",  "role": "Father Account", "full_name": "الأب الكاهن",     "password": "priest123"},
+        {"user_id": "service-001", "username": "service", "role": "Service Manager","full_name": "أمين الخدمة",     "password": "service123"},
+        {"user_id": "teacher-001", "username": "teacher", "role": "Teacher",        "full_name": "مدرس المدرسة",   "password": "teacher123"},
+    ]
+
+    for acct in predefined_staff:
+        if acct["user_id"] in existing_ids:
+            continue
+        acct["password"] = hash_password(acct["password"])
+        db.add_user({
+            "user_id": acct["user_id"], "username": acct["username"], "password": acct["password"],
+            "role": acct["role"], "full_name": acct["full_name"],
+            "section_id": "", "phone": "", "email": "", "stage_id": ""
+        })
+        existing_ids.add(acct["user_id"])
+
+    # Ensure a predefined Student account exists (for instant student login)
+    students = db.get_students()
+    existing_student_ids = set(students["student_id"].tolist()) if not students.empty and "student_id" in students.columns else set()
+    if "student-001" not in existing_student_ids:
+        student_data = {
+            "student_id": "student-001", "student_code": "STU000001",
+            "student_password": hash_password("student123"),
+            "full_name": "طالبة تجريبية", "section_id": "", "teacher_id": "",
+            "phone": "", "parent_phone": "", "birthdate": "", "address": "",
+            "notes": "", "school": "", "status": "active",
+            "profile_edit_used": "", "stage_id": ""
+        }
+        db.add_student(student_data)
+
+
 def show_initialization(db):
     users = db.get_users()
     if users.empty:
-        st.markdown("<div class='card'><h2 style='text-align:center;'>🔧 لا يوجد مستخدمون بعد</h2></div>", unsafe_allow_html=True)
-        st.markdown("#### يرجى الضغط على الزر التالي لإنشاء مدير النظام الافتراضي:")
-        if st.button("🛠️ تهيئة النظام وإنشاء المسؤول الأول", width="stretch", key="init_admin_btn"):
-            admin_data = {
-                "user_id": "admin-001", "username": "admin", "password": "admin123",
-                "role": "System Admin", "full_name": "مدير النظام",
-                "section_id": "", "phone": "0100000000", "email": "admin@church.com"
-            }
-            admin_data["password"] = hash_password(admin_data["password"])
-            db.add_user(admin_data)
-            st.success("✅ تم إنشاء مدير النظام بنجاح! الرجاء تسجيل الدخول باستخدام الحساب الافتراضي.")
-            time.sleep(2)
+        # First run: create admin and all predefined accounts immediately (no button click needed)
+        _ensure_predefined_accounts(db)
+        st.markdown("<div class='card'><h2 style='text-align:center;'>🔧 تم تهيئة النظام تلقائياً</h2></div>", unsafe_allow_html=True)
+        st.markdown("#### تم إنشاء حسابات الدخول السريع لجميع الأدوار. يمكنك تسجيل الدخول الآن.")
+        if st.button("🔄 تحديث الصفحة", width="stretch", key="init_refresh_btn"):
             st.rerun()
         st.stop()
+    # Ensure predefined accounts exist even if users already present (idempotent)
+    try:
+        _ensure_predefined_accounts(db)
+    except Exception:
+        pass
 
 
-def _render_role_selector():
+# Mapping: button display → predefined account identifier
+# Each button performs instant login using the corresponding predefined account.
+_INSTANT_LOGIN_ACCOUNTS = [
+    # (display_label, icon, user_id_for_staff_or_student_id, is_student)
+    ("مدير النظام",  "👨‍💼", "admin-001",   False),
+    ("الأب الكاهن",  "⛪",  "priest-001",  False),
+    ("أمين الخدمة",  "👥",  "service-001", False),
+    ("مدرس المدرسة", "🧑‍🏫", "teacher-001", False),
+    ("الطالب",       "🎓",  "student-001", True),
+]
+
+
+def _perform_instant_login(db, jwt_secret, account_id, is_student):
     """
-    Render the five account-type role selector buttons on the login page.
-    Returns the selected role string (or None if nothing selected yet).
-    Uses st.session_state.selected_login_role to persist the choice across reruns.
+    Perform instant login for a predefined account.
+    For staff (is_student=False): looks up by user_id in Users sheet.
+    For student (is_student=True): looks up by student_id in Students sheet.
+    Sets the same session-state variables as a normal login.
+    Returns True on success, False on failure (account missing/disabled).
     """
-    roles = [
-        ("System Admin",   "مدير النظام",  "👨‍💼", "admin"),
-        ("Father Account", "الأب الكاهن",  "⛪",  "priest"),
-        ("Service Manager","أمين الخدمة",  "👥",  "leader"),
-        ("Teacher",        "مدرس المدرسة", "🧑‍🏫", "teacher"),
-        ("Student",        "الطالب",       "🎓",  "student"),
-    ]
+    if is_student:
+        students = db.get_students()
+        if students.empty or "student_id" not in students.columns:
+            st.error("⚠️ لا توجد بيانات طالبات في النظام.")
+            return False
+        match = students[students["student_id"].astype(str).str.strip() == str(account_id).strip()]
+        if match.empty:
+            st.error("⚠️ حساب الطالب المحدد غير موجود. تواصل مع مسؤول النظام.")
+            return False
+        student = match.iloc[0].to_dict()
+        student_status = str(student.get("status", "active")).strip().lower()
+        if student_status != "active":
+            st.error("🚫 هذا الحساب غير نشط. يرجى التواصل مع مسؤول النظام.")
+            return False
+        st.session_state.student_logged_in = True
+        st.session_state.current_student = student
+        st.session_state.student_dashboard_page = "🏠 الرئيسية"
+        st.session_state.sidebar_open = False
+        st.session_state.selected_quiz_id = None
+        st.session_state.quiz_interface_started = False
+        db.add_log(student.get("student_id", ""), "تسجيل دخول طالبة (سريع)", f"دخول سريع: {student.get('full_name', '')}")
+        st.success(f"مرحباً {student.get('full_name', '')}! تم تسجيل الدخول.")
+        time.sleep(0.8)
+        st.rerun()
+        return True
+    else:
+        users = db.get_users()
+        if users.empty or "user_id" not in users.columns:
+            st.error("⚠️ لا يوجد مستخدمون في النظام بعد. يرجى تهيئة النظام أولاً.")
+            return False
+        match = users[users["user_id"].astype(str).str.strip() == str(account_id).strip()]
+        if match.empty:
+            st.error("⚠️ الحساب المحدد غير موجود. تواصل مع مسؤول النظام.")
+            return False
+        user = match.iloc[0].to_dict()
+        user_status = get_user_status(user)
+        if user_status != "active":
+            st.error(f"🚫 هذا الحساب {user_status}. يرجى التواصل مع مسؤول النظام.")
+            return False
+        token = generate_token(user, jwt_secret)
+        st.session_state.token = token
+        st.session_state.user = user
+        st.session_state.authenticated = True
+        st.session_state.last_login_time = get_cairo_now().isoformat()
+        st.session_state.menu_choice = "🏠 لوحة التحكم"
+        st.session_state.show_sidebar = True
+        db.add_log(user.get("user_id", ""), "تسجيل دخول (سريع)", f"دخول سريع: {user.get('full_name', '')}")
+        st.success(f"مرحباً {user.get('full_name', '')}! تم تسجيل الدخول.")
+        time.sleep(0.8)
+        st.rerun()
+        return True
 
-    selected = st.session_state.get("selected_login_role")
 
+def _render_instant_login_buttons(db, jwt_secret):
+    """
+    Render the five instant-login buttons. Each button performs immediate
+    authentication for its predefined account.
+    """
     st.markdown("""
     <style>
-    .role-selector-wrap { margin: 0 auto 1.2rem auto; max-width: 720px; }
+    .role-selector-wrap { margin: 0 auto 1.5rem auto; max-width: 760px; }
     .role-selector-title {
-        text-align: center; font-size: 0.95rem; font-weight: 600;
-        color: #475569; margin-bottom: 0.6rem;
+        text-align: center; font-size: 1rem; font-weight: 700;
+        color: #1e293b; margin-bottom: 0.2rem;
+    }
+    .role-selector-subtitle {
+        text-align: center; font-size: 0.82rem; color: #64748b;
+        margin-bottom: 0.8rem;
     }
     .role-btn {
         flex: 1 1 calc(33% - 0.5rem);
-        min-width: 120px;
-        padding: 0.6rem 0.5rem !important;
+        min-width: 110px;
+        padding: 0.7rem 0.5rem !important;
         border-radius: 12px !important;
         border: 2px solid #e2e8f0 !important;
         background: #ffffff !important;
@@ -2846,33 +2951,27 @@ def _render_role_selector():
         border-color: #94a3b8 !important;
         background: #f8fafc !important;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     @media (max-width: 600px) {
         .role-btn { flex: 1 1 calc(50% - 0.5rem); min-width: 100px; }
     }
     </style>
     <div class="role-selector-wrap">
-        <div class="role-selector-title">اختر نوع الحساب للدخول:</div>
+        <div class="role-selector-title">تسجيل الدخول السريع</div>
+        <div class="role-selector-subtitle">اضغط على نوع الحساب للدخول فوراً</div>
     </div>
     """, unsafe_allow_html=True)
 
     col1, col2, col3, col4, col5 = st.columns(5)
     buttons = [col1, col2, col3, col4, col5]
-    new_selection = None
 
-    for idx, (btn_col, (role_val, label, icon, css_class)) in enumerate(zip(buttons, roles)):
+    for btn_col, (label, icon, account_id, is_student) in zip(buttons, _INSTANT_LOGIN_ACCOUNTS):
         with btn_col:
             btn_label = f"{icon} {label}"
-            if st.button(btn_label, key=f"role_btn_{role_val}", width="stretch"):
-                new_selection = role_val
-
-    return new_selection
-
-
-def _clear_login_role_selection():
-    """Reset the stored login-role selection (used on logout)."""
-    if "selected_login_role" in st.session_state:
-        del st.session_state.selected_login_role
+            if st.button(btn_label, key=f"instant_login_{account_id}", width="stretch"):
+                with st.spinner("جاري تسجيل الدخول..."):
+                    _perform_instant_login(db, jwt_secret, account_id, is_student)
 
 
 def show_login_page(db, jwt_secret):
@@ -2899,125 +2998,9 @@ def show_login_page(db, jwt_secret):
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- Role selector: five account-type buttons ----
-    new_role = _render_role_selector()
-    if new_role is not None:
-        st.session_state.selected_login_role = new_role
-        st.rerun()
 
-    selected_role = st.session_state.get("selected_login_role")
-
-    # Show a hint if no role selected yet
-    if selected_role is None:
-        st.info("👆 اختر نوع الحساب أعلاه ثم أدخل بيانات الدخول.")
-
-    # Determine which tab to show based on selected role
-    show_staff_tab = selected_role in ["System Admin", "Father Account", "Service Manager", "Teacher"]
-    show_student_tab = selected_role == "Student"
-
-    # Build tabs dynamically based on selection
-    tab_labels = []
-    if show_staff_tab:
-        tab_labels.append("🔐 دخول الخدام")
-    if show_student_tab:
-        tab_labels.append("📝 تسجيل دخول الطالبات")
-    if not tab_labels:
-        tab_labels = ["🔐 دخول الخدام", "📝 تسجيل دخول الطالبات"]
-
-    tabs = st.tabs(tab_labels)
-    if not isinstance(tabs, (list, tuple)):
-        tabs = [tabs]
-
-    tab_idx = 0
-    if show_staff_tab:
-        with tabs[tab_idx]:
-            with st.form("login_form"):
-                username = st.text_input("اسم المستخدم", placeholder="أدخل اسم المستخدم").strip()
-                password = st.text_input("كلمة المرور", type="password", placeholder="أدخل كلمة المرور").strip()
-                if st.form_submit_button("تسجيل الدخول", width="stretch"):
-                    if not username or not password:
-                        st.error("يرجى إدخال اسم المستخدم وكلمة المرور")
-                    elif selected_role is None:
-                        st.error("يرجى اختيار نوع الحساب أولاً")
-                    else:
-                        with st.spinner("جاري التحقق..."):
-                            users = db.get_users()
-                            user_row = users[users.username == username]
-                            if user_row.empty:
-                                st.error("اسم المستخدم غير موجود")
-                            else:
-                                user = user_row.iloc[0].to_dict()
-                                # Verify the authenticated user's role matches the selected role
-                                user_role = user.get("role", "")
-                                if user_role != selected_role:
-                                    db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة",
-                                               f"الدور الفعلي ({user_role}) لا يتطابق مع النوع المختار ({selected_role})")
-                                    st.error("هذا الحساب غير مصرح له بالدخول من هذا النوع. اختر نوع الحساب الصحيح.")
-                                else:
-                                    user_status = get_user_status(user)
-                                    if user_status != "active":
-                                        db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", f"الحساب غير نشط (الحالة: {user_status})")
-                                        st.error(f"🚫 هذا الحساب {user_status}. يرجى التواصل مع مسؤول النظام.")
-                                    elif verify_password(password, user.get("password", "")):
-                                        token = generate_token(user, jwt_secret)
-                                        st.session_state.token = token
-                                        st.session_state.user = user
-                                        st.session_state.authenticated = True
-                                        st.session_state.last_login_time = get_cairo_now().isoformat()
-                                        st.session_state.menu_choice = "🏠 لوحة التحكم"
-                                        st.session_state.show_sidebar = True
-                                        db.add_log(user["user_id"], "تسجيل دخول", "تم تسجيل الدخول بنجاح")
-                                        st.success("تم تسجيل الدخول بنجاح!")
-                                        time.sleep(1)
-                                        st.rerun()
-                                    else:
-                                        db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", "كلمة مرور خاطئة")
-                                        st.error("كلمة المرور غير صحيحة")
-        tab_idx += 1
-
-    if show_student_tab:
-        with tabs[tab_idx]:
-            st.subheader("تسجيل دخول الطالبات")
-            st.info("أدخلي كود الطالبة وكلمة المرور الخاصة بكِ للدخول إلى حسابك.")
-            with st.form("student_login_form"):
-                code = st.text_input("كود الطالبة", placeholder="مثال: STU000001").strip()
-                passwd = st.text_input("كلمة مرور الطالبة", type="password", placeholder="").strip()
-                if st.form_submit_button("تسجيل الدخول", width="stretch"):
-                    if not code or not passwd:
-                        st.error("الرجاء إدخال كود الطالبة وكلمة المرور")
-                    else:
-                        with st.spinner("جاري التحقق..."):
-                            # التأكد من وجود عمود profile_edit_used
-                            try:
-                                db.ensure_student_profile_edit_column()
-                            except Exception:
-                                pass
-                            students = db.get_students()
-                            student_match = students[
-                                (students.student_code.astype(str).str.strip() == code) &
-                                (students.student_password.astype(str).str.strip() == passwd)
-                            ]
-                            if student_match.empty:
-                                st.error("كود الطالبة أو كلمة المرور غير صحيحة")
-                            else:
-                                student = student_match.iloc[0].to_dict()
-                                student_status = str(student.get("status", "active")).strip().lower()
-                                if student_status != "active":
-                                    st.error("🚫 هذا الحساب غير نشط. يرجى التواصل مع مسؤول النظام.")
-                                else:
-                                    # Clear staff-role selection since student uses separate flow
-                                    _clear_login_role_selection()
-                                    st.session_state.student_logged_in = True
-                                    st.session_state.current_student = student
-                                    st.session_state.student_dashboard_page = "🏠 الرئيسية"
-                                    st.session_state.sidebar_open = False
-                                    st.session_state.selected_quiz_id = None
-                                    st.session_state.quiz_interface_started = False
-                                    db.add_log(student.get("student_id", ""), "تسجيل دخول طالبة", f"تم تسجيل دخول الطالبة: {student.get('full_name', '')}")
-                                    st.success(f"مرحباً {student.get('full_name', '')}! تم تسجيل الدخول بنجاح.")
-                                    time.sleep(1)
-                                    st.rerun()
-        tab_idx += 1
+    # ---- Five instant-login buttons ----
+    _render_instant_login_buttons(db, jwt_secret)
     return 0
 
 
@@ -3026,7 +3009,7 @@ def grade_attempt(db, quiz_id, answers_dict):
     questions = db.get_quiz_questions(quiz_id)
     if questions.empty:
         return 0
-    
+
     correct_count = 0
     for _, q_row in questions.iterrows():
         q = q_row.to_dict()
@@ -3676,7 +3659,7 @@ def render_student_sidebar(db, student, menu_items, current_page):
         with col_main:
             st.markdown(f"### 👤 {full_name}")
             st.caption("طالبة")
-        
+
 
         if st.button("✕ إغلاق", key="student_sidebar_close_text_btn", width="stretch"):
             st.session_state.sidebar_open = False
@@ -3891,25 +3874,25 @@ def show_student_exam_history_tab(db, student):
 def show_student_notifications_tab(db, student):
     """الإشعارات - عرض إشعارات الطالبة."""
     st.markdown(hero_header("الإشعارات", "🔔 الإشعارات والرسائل"), unsafe_allow_html=True)
-    
+
     student_id = student.get("student_id", "")
     notifications = db.get_notifications(student_id)
-    
+
     if notifications.empty:
         st.info("لا توجد إشعارات حالياً.")
         return
-    
+
     # عرض الإشعارات
     for _, notif in notifications.iterrows():
         title = notif.get("title", "")
         message = notif.get("message", "")
         created_at = notif.get("created_at", "")
         is_read = notif.get("is_read", "False")
-        
+
         # تحديد لون الإشعار
         bg_color = "#f8fafc" if is_read == "True" else "#dbeafe"
         border_color = "#e2e8f0" if is_read == "True" else "#2563eb"
-        
+
         st.markdown(f"""
         <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
             <div style="font-weight: 700; color: #0f172a; margin-bottom: 0.5rem;">{title}</div>
@@ -3917,7 +3900,7 @@ def show_student_notifications_tab(db, student):
             <div style="font-size: 0.75rem; color: #94a3b8;">{created_at}</div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     # زر تحديد الكل كمقروء
     if st.button("✅ تحديد الكل كمقروء", width="stretch", key="mark_all_read_btn"):
         for _, notif in notifications.iterrows():
@@ -4885,7 +4868,7 @@ def show_members_cards_page(db):
     # Translate Arabic filter values back to English for database filtering
     role_filter_map = {"الكل": "الكل", "طالبة": "Student", "أمين خدمة": "Service Manager", "مدرسة": "Teacher"}
     status_filter_map = {"الكل": "الكل", "نشط": "active", "غير نشط": "inactive"}
-    
+
     if role_filter != "الكل" and not filtered.empty and "role" in filtered.columns:
         filtered = filtered[filtered["role"] == role_filter_map.get(role_filter, role_filter)]
     if status_filter != "الكل" and not filtered.empty and "status" in filtered.columns:
@@ -4939,7 +4922,7 @@ def show_members_cards_page(db):
                     student_notes = m.get("notes", "")
                     student_code = m.get("student_code", "")
                     student_password = m.get("student_password", "")
-                    
+
                     st.markdown(f"""
                     <div class='user-card' id='card-{mid}'>
                         <div class='card-badge {status_class}'>{status_label}</div>
@@ -5002,7 +4985,7 @@ def show_members_cards_page(db):
                     if st.button("📋", key=f"view_{mid}_{idx}"):
                         st.session_state.profile_user_id = mid
                         st.rerun()
-                
+
                 # Check if teacher can edit/delete
                 can_edit_delete = True
                 is_own_data = True
@@ -5015,7 +4998,7 @@ def show_members_cards_page(db):
                         # Teacher cannot edit other teachers
                         can_edit_delete = False
                         st.warning("⛔ لا يمكنك التعديل على بيانات شخص آخر. هذه البيانات تخص مستخدم آخر.")
-                
+
                 if role == "System Admin" and can_edit_delete:
                     with action_cols[1]:
                         if status == "active":
@@ -5113,7 +5096,7 @@ def show_members_cards_page(db):
                             sec_options = sections["section_id"].tolist() if not sections.empty else []
                             current_sec = sec_id if sec_id in sec_options else (sec_options[0] if sec_options else "")
                             edit_section = st.selectbox("الفصل", sec_options, index=sec_options.index(current_sec) if current_sec in sec_options else 0, format_func=lambda x: sections[sections.section_id == x]["section_name"].values[0]) if sec_options else ""
-                            
+
                             # خانة المرحلة — متاحة لجميع أنواع الأعضاء ومرتبطة بنظام المراحل الموجود
                             stage_ids_edit = stages["stage_id"].tolist() if not stages.empty else []
                             eff_stage_id_edit = resolve_member_stage_id(m.get("stage_id", ""), sec_id, sections)
@@ -5129,7 +5112,7 @@ def show_members_cards_page(db):
                                 ),
                                 key=f"edit_stage_{mid}_{idx}"
                             ) if stage_ids_edit else ""
-                            
+
                             # Student specific fields
                             edit_parent_phone = ""
                             edit_birthdate = None
@@ -5145,7 +5128,7 @@ def show_members_cards_page(db):
                                 edit_school = st.text_input("المدرسة", value=m.get("school", ""))
                                 edit_notes = st.text_area("ملاحظات", value=m.get("notes", ""))
                                 edit_status = st.selectbox("الحالة", ["نشطة", "غير نشطة"], index=0 if m.get("status", "active") == "active" else 1)
-                            
+
                             if st.form_submit_button("💾 حفظ"):
                                 if member_type == "student":
                                     db.update_student(mid, {
@@ -5287,7 +5270,7 @@ def show_members_cards_page(db):
             new_section_id = ""
             if not sections.empty:
                 new_section_id = st.selectbox("الفصل", sections["section_id"], format_func=lambda x: sections[sections.section_id == x]["section_name"].values[0])
-            
+
             # خانة المرحلة — متاحة لجميع أنواع الأعضاء الجدد ومرتبطة بنظام المراحل الموجود
             new_stage_id = ""
             if not stages.empty:
@@ -5300,7 +5283,7 @@ def show_members_cards_page(db):
                     ),
                     key="add_member_stage"
                 )
-            
+
             # Student specific fields
             new_parent_phone = ""
             new_birthdate = None
@@ -5828,7 +5811,7 @@ def show_followup(db):
     user_id = user.get("user_id", "")
     students = db.get_students()
     followup = db.get_followup()
-    
+
     # Service Manager filtering by stages
     if role == "Service Manager" and db and user_id:
         section_ids = get_sections_for_supervisor(db, user_id)
@@ -5886,7 +5869,7 @@ def show_followup(db):
                     st.rerun()
                 except ValueError as e:
                     st.error(str(e))
-    
+
     # Show existing followup records with delete option for admin
     if not followup.empty and role == "System Admin":
         st.markdown("---")
@@ -5911,7 +5894,7 @@ def show_followup(db):
 # =============================================================================
     role = user.get("role", "")
     user_id = user.get("user_id", "")
-    
+
     # Service Manager can view competition scores for their stages
     if role == "Service Manager":
         section_ids = get_sections_for_supervisor(db, user_id)
@@ -6057,7 +6040,7 @@ def show_unified_assessments_admin(db):
 
     if role in ["System Admin", "Service Manager"]:
         st.subheader("➕ إنشاء جديد")
-        
+
         # Unified form - no type selection needed
         with st.form("unified_assessment_create_form"):
             col1, col2 = st.columns(2)
@@ -6240,13 +6223,13 @@ def show_unified_assessments_admin(db):
                     e_marks = st.number_input("الدرجة الكلية", min_value=1, max_value=500, value=int(float(row.get("total_marks", "20") or 20)))
                     e_duration = st.number_input("الوقت (بالدقائق)", min_value=1, max_value=240, value=int(float((row.get("duration_minutes") or row.get("time_limit_minutes") or "15"))))
                     e_is_active = st.checkbox("نشط", value=str(row.get("is_active", "True")).strip() == "True")
-                    
+
                     # Store current total marks for passing score validation
                     current_total_marks = e_marks
-                    
+
                     # All fields visible immediately - no conditional rendering
                     e_chapter = st.text_input("الأصحاح أو الدرس", value=row.get("chapter_lesson", ""))
-                    
+
                     # المرحلة المستهدفة
                     stage_options = stages["stage_id"].tolist() if not stages.empty else []
                     current_stage_id = row.get("stage_id", "")
@@ -6261,11 +6244,11 @@ def show_unified_assessments_admin(db):
                     else:
                         st.warning("⚠️ لا توجد مراحل متاحة.")
                         e_stage_id = ""
-                    
+
                     e_pass = st.number_input("درجة النجاح", min_value=1, max_value=current_total_marks, value=min(int(float(row.get("passing_score", "50") or 50)), current_total_marks))
                     e_start = st.date_input("تاريخ البداية", value=pd.to_datetime(row.get("start_date")).date() if str(row.get("start_date", "")).strip() else get_cairo_now().date(), key=f"start_{a_id}")
                     e_end = st.date_input("تاريخ النهاية", value=pd.to_datetime(row.get("end_date")).date() if str(row.get("end_date", "")).strip() else get_cairo_now().date(), key=f"end_{a_id}")
-                    
+
                     updates = {
                         "title": e_title.strip(),
                         "description": e_desc.strip(),
@@ -6294,7 +6277,7 @@ def show_unified_assessments_admin(db):
                         if passing_score_val > total_marks_val:
                             st.error("درجة النجاح لا يمكن أن تتجاوز الدرجة الكلية.")
                             return
-                        
+
                         db.update_quiz(a_id, updates)
                         st.session_state.pop(f"u_edit_open_{a_id}", None)
                         st.rerun()
@@ -6375,7 +6358,7 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
         df.to_excel(writer, sheet_name='التقرير', index=False)
         workbook = writer.book
         ws = writer.sheets['التقرير']
-        
+
         # Style header
         header_font = Font(name='Cairo', bold=True, color='FFFFFF', size=12)
         header_fill = PatternFill(start_color='667EEA', end_color='764BA2', fill_type='solid')
@@ -6386,14 +6369,14 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
-        
+
         for col_idx, col in enumerate(df.columns, 1):
             cell = ws.cell(row=1, column=col_idx)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_alignment
             cell.border = thin_border
-        
+
         # Auto-adjust column widths
         for col_idx, col in enumerate(df.columns, 1):
             max_len = max(
@@ -6401,7 +6384,7 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
                 len(str(col))
             )
             ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 4, 50)
-        
+
         # Add charts as images if provided
         if charts_list:
             import warnings
@@ -6413,7 +6396,7 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
                     img = XLImage(img_stream)
                     img.width = 800
                     img.height = 350
-                    
+
                     # Create new sheet for chart
                     ws_chart = workbook.create_sheet(title=sheet_name)
                     ws_chart.add_image(img, 'A1')
@@ -6421,7 +6404,7 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
                     warnings.warn(f"Chart export skipped for {sheet_name}: Kaleido not available")
                     note_ws = workbook.create_sheet(title=sheet_name)
                     note_ws['A1'] = "الرسوم البيانية غير متاحة في بيئة التشغيل الحالية. استخدم خيار CSV أو شاهد الرسوم في التطبيق."
-    
+
     output.seek(0)
     return output.getvalue()
 
@@ -6429,19 +6412,19 @@ def _export_to_excel_with_charts(report_title, df, charts_list=None):
 def show_reports_page(db):
     """صفحة التقارير والإحصائيات المتقدمة"""
     st.markdown(hero_header("التقارير والإحصائيات", "📊 عرض التقارير والرسوم البيانية"), unsafe_allow_html=True)
-    
+
     user = st.session_state.user
     role = user.get("role", "")
     user_id = user.get("user_id", "")
     user_section_id = user.get("section_id", "")
-    
+
     # Load data
     attendance = db.get_attendance()
     students = db.get_students()
     sections = db.get_sections()
     stages = db.get_stages()
     events = db.get_events()
-    
+
     # RBAC filtering
     if role == "Service Manager" and db and user_id:
         section_ids = get_sections_for_supervisor(db, user_id)
@@ -6459,30 +6442,30 @@ def show_reports_page(db):
                 students = students[students.section_id == user_section_id]
             if not attendance.empty and "section_id" in attendance.columns:
                 attendance = attendance[attendance.section_id == user_section_id]
-    
+
     if attendance.empty:
         st.info("لا توجد بيانات حضور كافية لإنشاء التقارير.")
         return
-    
+
     # Parse dates
     if "date" in attendance.columns:
         attendance["date"] = pd.to_datetime(attendance["date"], errors="coerce")
     if "student_id" in attendance.columns and not students.empty and "student_id" in students.columns:
         attendance = attendance.merge(students[["student_id", "full_name", "section_id"]], on="student_id", how="left")
-    
+
     # =========================================================================
     # FILTERS
     # =========================================================================
     st.markdown("### 🔍 الفلاتر")
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-    
+
     with col_f1:
         # Date range filter
         min_date = attendance["date"].min().date() if not attendance.empty and "date" in attendance.columns else get_cairo_now().date() - timedelta(days=30)
         max_date = attendance["date"].max().date() if not attendance.empty and "date" in attendance.columns else get_cairo_now().date()
         date_from = st.date_input("من تاريخ", min_date)
         date_to = st.date_input("إلى تاريخ", max_date)
-    
+
     with col_f2:
         # Section filter
         section_options = ["الكل"]
@@ -6494,11 +6477,11 @@ def show_reports_page(db):
                 sections[sections.section_id == x]["section_name"].values[0] if not sections.empty and x in sections["section_id"].values else x
             )
         )
-    
+
     with col_f3:
         # Event type filter (for event reports)
         event_type_filter = st.selectbox("نوع الحدث", ["الكل"] + EVENT_TYPES)
-    
+
     with col_f4:
         # Report type selector
         report_type = st.selectbox(
@@ -6510,7 +6493,7 @@ def show_reports_page(db):
                 "تقرير الأعضاء الغائبين (أكثر من 3 أيام)"
             ]
         )
-    
+
     # Apply date filter
     filtered_attendance = attendance.copy()
     if "date" in filtered_attendance.columns:
@@ -6518,31 +6501,31 @@ def show_reports_page(db):
             (filtered_attendance["date"].dt.date >= date_from) &
             (filtered_attendance["date"].dt.date <= date_to)
         ]
-    
+
     # Apply section filter
     if section_filter != "الكل" and "section_id" in filtered_attendance.columns:
         filtered_attendance = filtered_attendance[filtered_attendance["section_id"] == section_filter]
-    
+
     # Apply event type filter (for events)
     filtered_events = events.copy() if not events.empty else pd.DataFrame()
     if event_type_filter != "الكل" and not filtered_events.empty and "event_type" in filtered_events.columns:
         filtered_events = filtered_events[filtered_events["event_type"] == event_type_filter]
-    
+
     # =========================================================================
     # REPORT GENERATION
     # =========================================================================
     st.markdown("---")
     st.markdown("### 📋 التقرير")
-    
+
     report_df = pd.DataFrame()
     report_title = ""
     charts_to_export = []
-    
+
     if report_type == "تقرير الحضور الأسبوعي (آخر 7 أيام)":
         report_title = "تقرير الحضور الأسبوعي"
         week_ago = get_cairo_now().date() - timedelta(days=7)
         weekly = filtered_attendance[filtered_attendance["date"].dt.date >= week_ago].copy()
-        
+
         if not weekly.empty:
             # Summary by day
             daily_summary = weekly.groupby([weekly["date"].dt.date, "status"]).size().reset_index(name="العدد")
@@ -6550,14 +6533,14 @@ def show_reports_page(db):
             daily_pivot.columns.name = None
             daily_pivot["date"] = pd.to_datetime(daily_pivot["date"]).dt.strftime("%Y-%m-%d")
             daily_pivot = daily_pivot.rename(columns={"date": "التاريخ"})
-            
+
             # Add total
             status_cols = [c for c in daily_pivot.columns if c != "التاريخ"]
             if status_cols:
                 daily_pivot["الإجمالي"] = daily_pivot[status_cols].sum(axis=1)
-            
+
             report_df = daily_pivot
-            
+
             # Line chart for weekly attendance
             fig_line = px.line(
                 weekly.groupby([weekly["date"].dt.date, "status"]).size().reset_index(name="العدد"),
@@ -6572,7 +6555,7 @@ def show_reports_page(db):
             )
             st.plotly_chart(fig_line, width="stretch")
             charts_to_export.append((fig_line, "الحضور اليومي"))
-            
+
             # Pie chart for status distribution
             status_counts = weekly["status"].value_counts().reset_index()
             status_counts.columns = ["الحالة", "العدد"]
@@ -6586,7 +6569,7 @@ def show_reports_page(db):
             charts_to_export.append((fig_pie, "توزيع الحالات"))
         else:
             st.info("لا توجد بيانات للأيام السبعة الماضية.")
-    
+
     elif report_type == "تقرير الحضور الشهري (شهر محدد)":
         report_title = "تقرير الحضور الشهري"
         col_m1, col_m2 = st.columns(2)
@@ -6594,42 +6577,42 @@ def show_reports_page(db):
             month = st.selectbox("الشهر", range(1, 13), index=get_cairo_now().month - 1)
         with col_m2:
             year = st.number_input("السنة", value=get_cairo_now().year, min_value=2020, max_value=2100)
-        
+
         monthly = filtered_attendance[
             (filtered_attendance["date"].dt.month == month) &
             (filtered_attendance["date"].dt.year == year)
         ].copy()
-        
+
         if not monthly.empty:
             # Student-level summary
             student_summary = monthly.groupby(["student_id", "full_name", "status"]).size().reset_index(name="عدد الأيام")
             student_pivot = student_summary.pivot(index=["student_id", "full_name"], columns="status", values="عدد الأيام").fillna(0).reset_index()
             student_pivot.columns.name = None
-            
+
             # Rename columns
             student_pivot = student_pivot.rename(columns={"full_name": "اسم الطالبة"})
             if "student_id" in student_pivot.columns:
                 student_pivot = student_pivot.drop(columns=["student_id"])
-            
+
             # Add total
             status_cols = [c for c in student_pivot.columns if c != "اسم الطالبة"]
             if status_cols:
                 student_pivot["إجمالي الأيام"] = student_pivot[status_cols].sum(axis=1)
-            
+
             report_df = student_pivot
-            
+
             # Bar chart comparing sections
             if "section_id" in monthly.columns:
                 section_attendance = monthly.groupby(["section_id", "status"]).size().reset_index(name="العدد")
                 section_pivot = section_attendance.pivot(index="section_id", columns="status", values="العدد").fillna(0).reset_index()
                 section_pivot.columns.name = None
-                
+
                 if not sections.empty and "section_id" in sections.columns:
                     section_pivot = section_pivot.merge(
                         sections[["section_id", "section_name"]], on="section_id", how="left"
                     )
                     section_pivot["section_id"] = section_pivot["section_name"].fillna(section_pivot["section_id"])
-                
+
                 fig_bar = px.bar(
                     section_pivot, x="section_id",
                     y=[c for c in ["حاضر", "غائب", "متأخر"] if c in section_pivot.columns],
@@ -6644,7 +6627,7 @@ def show_reports_page(db):
                 )
                 st.plotly_chart(fig_bar, width="stretch")
                 charts_to_export.append((fig_bar, "مقارنة الفصول"))
-            
+
             # Pie chart
             status_counts = monthly["status"].value_counts().reset_index()
             status_counts.columns = ["الحالة", "العدد"]
@@ -6658,11 +6641,11 @@ def show_reports_page(db):
             charts_to_export.append((fig_pie, "توزيع الحالات"))
         else:
             st.info(f"لا توجد بيانات للشهر {month}/{year}.")
-    
+
     elif report_type == "تقرير الأعضاء الجدد (آخر 30 يوم)":
         report_title = "تقرير الأعضاء الجدد"
         thirty_days_ago = get_cairo_now().date() - timedelta(days=30)
-        
+
         # New students
         new_students = pd.DataFrame()
         if not students.empty:
@@ -6688,13 +6671,13 @@ def show_reports_page(db):
                     first_dates.columns = ["student_id", "first_date"]
                     new_students = students.merge(first_dates, on="student_id", how="inner")
                     new_students = new_students[new_students["first_date"].dt.date >= thirty_days_ago]
-        
+
         if not new_students.empty:
             new_students["first_date_str"] = new_students["first_date"].dt.strftime("%Y-%m-%d")
             report_df = new_students[["full_name", "phone", "section_id", "first_date_str"]].rename(
                 columns={"full_name": "الاسم", "phone": "الهاتف", "section_id": "الفصل", "first_date_str": "تاريخ أول حضور"}
             )
-            
+
             # Add section names
             if not sections.empty and "section_id" in sections.columns:
                 report_df = report_df.merge(
@@ -6703,9 +6686,9 @@ def show_reports_page(db):
                 )
                 report_df["الفصل"] = report_df["section_name"].fillna(report_df["الفصل"])
                 report_df = report_df.drop(columns=["section_id", "section_name"], errors="ignore")
-            
+
             st.success(f"✅ تم إضافة {len(new_students)} أعضاء جدد في آخر 30 يوم")
-            
+
             # Bar chart for new members by section
             if not report_df.empty and "الفصل" in report_df.columns:
                 section_counts = report_df["الفصل"].value_counts().reset_index()
@@ -6723,23 +6706,23 @@ def show_reports_page(db):
                 charts_to_export.append((fig_bar, "أعضاء جدد حسب الفصل"))
         else:
             st.info("لا يوجد أعضاء جدد في آخر 30 يوم.")
-    
+
     elif report_type == "تقرير الأعضاء الغائبين (أكثر من 3 أيام)":
         report_title = "تقرير الأعضاء الغائبين"
         month_start = get_cairo_now().replace(day=1).date()
         month_attendance = filtered_attendance[filtered_attendance["date"].dt.date >= month_start].copy()
-        
+
         if not month_attendance.empty and "status" in month_attendance.columns:
             # Count absences per student
             absent_counts = month_attendance[month_attendance["status"] == "غائب"].groupby(
                 ["student_id", "full_name"]
             ).size().reset_index(name="أيام الغياب")
-            
+
             absent_counts = absent_counts[absent_counts["أيام الغياب"] > 3].sort_values("أيام الغياب", ascending=False)
-            
+
             if not absent_counts.empty:
                 report_df = absent_counts.rename(columns={"full_name": "اسم الطالبة", "أيام الغياب": "أيام الغياب"})
-                
+
                 # Add section info
                 if not students.empty and "section_id" in students.columns:
                     report_df = report_df.merge(
@@ -6754,11 +6737,11 @@ def show_reports_page(db):
                     else:
                         report_df["الفصل"] = report_df.get("section_id", "")
                         report_df = report_df.drop(columns=["section_id"], errors="ignore")
-                
+
                 report_df = report_df.drop(columns=["student_id"], errors="ignore")
-                
+
                 st.warning(f"⚠️ يوجد {len(absent_counts)} طالبة غائبة أكثر من 3 أيام هذا الشهر")
-                
+
                 # Bar chart
                 fig_bar = px.bar(
                     absent_counts.head(15), x="full_name", y="أيام الغياب",
@@ -6776,29 +6759,29 @@ def show_reports_page(db):
                 st.success("✅ لا توجد طالبات غائبات أكثر من 3 أيام هذا الشهر.")
         else:
             st.info("لا توجد بيانات كافية.")
-    
+
     # =========================================================================
     # DISPLAY REPORT TABLE
     # =========================================================================
     if not report_df.empty:
         st.markdown("#### 📊 بيانات التقرير")
         st.dataframe(report_df, width="stretch")
-    
+
     # =========================================================================
     # INTERACTIVE CHARTS SECTION
     # =========================================================================
     st.markdown("---")
     st.markdown("### 📈 الرسوم البيانية التفاعلية")
-    
+
     tab_chart1, tab_chart2, tab_chart3 = st.tabs([
         "📈 الحضور عبر الزمن", "📊 مقارنة بين الفصول", "🥧 توزيع الحالات"
     ])
-    
+
     with tab_chart1:
         # Line chart: attendance over time (last 30 days)
         thirty_days_ago = get_cairo_now().date() - timedelta(days=30)
         last_30 = filtered_attendance[filtered_attendance["date"].dt.date >= thirty_days_ago].copy()
-        
+
         if not last_30.empty:
             daily = last_30.groupby([last_30["date"].dt.date, "status"]).size().reset_index(name="العدد")
             fig_line = px.line(
@@ -6816,14 +6799,14 @@ def show_reports_page(db):
             st.plotly_chart(fig_line, width="stretch")
         else:
             st.info("لا توجد بيانات كافية لآخر 30 يوم.")
-    
+
     with tab_chart2:
         # Bar chart: compare sections
         if not filtered_attendance.empty and "section_id" in filtered_attendance.columns:
             section_comp = filtered_attendance.groupby(["section_id", "status"]).size().reset_index(name="العدد")
             section_pivot = section_comp.pivot(index="section_id", columns="status", values="العدد").fillna(0).reset_index()
             section_pivot.columns.name = None
-            
+
             if not sections.empty and "section_id" in sections.columns:
                 section_pivot = section_pivot.merge(
                     sections[["section_id", "section_name"]], on="section_id", how="left"
@@ -6831,7 +6814,7 @@ def show_reports_page(db):
                 section_pivot["الفصل"] = section_pivot["section_name"].fillna(section_pivot["section_id"])
             else:
                 section_pivot["الفصل"] = section_pivot["section_id"]
-            
+
             fig_bar = px.bar(
                 section_pivot, x="الفصل",
                 y=[c for c in ["حاضر", "غائب", "متأخر"] if c in section_pivot.columns],
@@ -6848,13 +6831,13 @@ def show_reports_page(db):
             st.plotly_chart(fig_bar, width="stretch")
         else:
             st.info("لا توجد بيانات كافية للمقارنة بين الفصول.")
-    
+
     with tab_chart3:
         # Pie chart: status distribution
         if not filtered_attendance.empty and "status" in filtered_attendance.columns:
             status_counts = filtered_attendance["status"].value_counts().reset_index()
             status_counts.columns = ["الحالة", "العدد"]
-            
+
             fig_pie = px.pie(
                 status_counts, names="الحالة", values="العدد",
                 title="توزيع الحالات (حاضر / غائب / متأخر)",
@@ -6866,16 +6849,16 @@ def show_reports_page(db):
             st.plotly_chart(fig_pie, width="stretch")
         else:
             st.info("لا توجد بيانات كافية لتوزيع الحالات.")
-    
+
     # =========================================================================
     # EXPORT BUTTONS
     # =========================================================================
     if not report_df.empty:
         st.markdown("---")
         st.markdown("### 📥 تصدير التقرير")
-        
+
         col_exp1, col_exp2 = st.columns(2)
-        
+
         with col_exp1:
             # CSV Export
             csv_bytes = _export_to_csv_bytes(report_df)
@@ -6887,7 +6870,7 @@ def show_reports_page(db):
                 width="stretch",
                 key="export_csv_btn"
             )
-        
+
         with col_exp2:
             # Excel Export
             try:
@@ -6902,7 +6885,7 @@ def show_reports_page(db):
                 )
             except Exception as e:
                 st.error("تعذر تصدير Excel: " + str(e))
-    
+
     # =========================================================================
     # EVENT REPORT (if events data available)
     # =========================================================================
@@ -7253,12 +7236,12 @@ def show_student_profile(db, student_id):
             st.session_state.profile_user_id = None
             st.rerun()
         return
-    
+
     student = student_row.iloc[0].to_dict()
     sections = db.get_sections()
     user = st.session_state.user
     role = user.get("role", "")
-    
+
     # Get section name
     section_name = ""
     sec_id = student.get("section_id", "")
@@ -7266,16 +7249,16 @@ def show_student_profile(db, student_id):
         sec_match = sections[sections["section_id"] == sec_id]
         if not sec_match.empty:
             section_name = sec_match.iloc[0].get("section_name", "")
-    
+
     # المرحلة الموحدة للبطاقة الشخصية (نفس مصدر بيانات إدارة الأعضاء)
     stages_profile = db.get_stages()
     stage_name_profile = resolve_member_stage_name(student.get("stage_id", ""), sec_id, sections, stages_profile)
-    
+
     full_name = student.get("full_name", "غير معروف")
     initials = get_initials(full_name)
     status = student.get("status", "active")
     status_label = {"active": "نشطة", "inactive": "غير نشطة"}.get(status, "نشطة")
-    
+
     st.markdown(f"""
     <div class="profile-header">
         <div style="display:flex; align-items:center; gap:2rem;">
@@ -7288,7 +7271,7 @@ def show_student_profile(db, student_id):
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
         st.markdown('<div class="profile-stat-card">', unsafe_allow_html=True)
@@ -7307,7 +7290,7 @@ def show_student_profile(db, student_id):
         st.markdown(f"<h3>{section_name or '—'}</h3>", unsafe_allow_html=True)
         st.markdown("<p>🏫 الفصل</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-    
+
     with st.expander("📋 المعلومات الشخصية", expanded=True):
         info_cols = st.columns(2)
         with info_cols[0]:
@@ -7321,13 +7304,13 @@ def show_student_profile(db, student_id):
             st.markdown(f"**🏫 المدرسة:** {student.get('school', '—') or '—'}")
             st.markdown(f"**📍 العنوان:** {student.get('address', '—') or '—'}")
             st.markdown(f"**📌 الحالة:** {status_label}")
-    
+
     if student.get("notes"):
         with st.expander("📝 ملاحظات"):
             st.markdown(student.get("notes", ""))
-    
+
     st.markdown("---")
-    
+
     # Action buttons based on role
     if role in ["System Admin", "Service Manager"]:
         act_col1, act_col2, act_col3 = st.columns(3)
@@ -7361,11 +7344,11 @@ def show_student_profile(db, student_id):
                 st.rerun()
     elif role == "Teacher":
         st.info("👁️ وضع العرض فقط - لا يمكنك التعديل على بيانات الطالبات")
-    
+
     if st.button("🔙 العودة", width="stretch"):
         st.session_state.profile_user_id = None
         st.rerun()
-    
+
     # Edit form for System Admin and Service Manager
     if role in ["System Admin", "Service Manager"] and st.session_state.get("edit_student_id") == student_id:
         st.markdown("---")
@@ -7379,13 +7362,13 @@ def show_student_profile(db, student_id):
                 edit_address = st.text_input("العنوان", value=student.get("address", ""))
                 edit_school = st.text_input("المدرسة", value=student.get("school", ""))
                 edit_notes = st.text_area("ملاحظات", value=student.get("notes", ""))
-                
+
                 sec_options = sections["section_id"].tolist() if not sections.empty else []
                 current_sec = sec_id if sec_id in sec_options else (sec_options[0] if sec_options else "")
-                edit_section = st.selectbox("الفصل", sec_options, 
+                edit_section = st.selectbox("الفصل", sec_options,
                                            index=sec_options.index(current_sec) if current_sec in sec_options else 0,
                                            format_func=lambda x: sections[sections.section_id == x]["section_name"].values[0]) if sec_options else ""
-                
+
                 # خانة المرحلة — مرتبطة بنظام المراحل الموجود مسبقاً
                 stage_ids_prof = stages_profile["stage_id"].tolist() if not stages_profile.empty else []
                 eff_stage_id_prof = resolve_member_stage_id(student.get("stage_id", ""), sec_id, sections)
@@ -7401,9 +7384,9 @@ def show_student_profile(db, student_id):
                     ),
                     key="edit_student_stage_profile"
                 ) if stage_ids_prof else ""
-                
+
                 edit_status = st.selectbox("الحالة", ["نشطة", "غير نشطة"], index=0 if status == "active" else 1)
-                
+
                 if st.form_submit_button("💾 حفظ التعديلات"):
                     db.update_student(student_id, {
                         "full_name": edit_name,
@@ -7557,7 +7540,7 @@ def show_logs(db):
     if not logs.empty:
         if "timestamp" in logs.columns:
             logs["timestamp"] = pd.to_datetime(logs["timestamp"])
-        
+
         # إضافة عمليات البحث والتصفية
         st.markdown("#### 🔍 تصفية السجلات")
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -7574,17 +7557,17 @@ def show_logs(db):
             # فلتر حسب التاريخ
             date_options = ["الكل", "آخر 24 ساعة", "آخر 7 أيام", "آخر 30 يوم"]
             selected_date_range = st.selectbox("الفترة الزمنية", date_options)
-        
+
         filtered_logs = logs.copy()
-        
+
         # تطبيق فلتر المستخدم
         if selected_user != "الكل" and "user_id" in filtered_logs.columns:
             filtered_logs = filtered_logs[filtered_logs["user_id"] == selected_user]
-        
+
         # تطبيق فلتر العملية
         if selected_action != "الكل" and "action" in filtered_logs.columns:
             filtered_logs = filtered_logs[filtered_logs["action"] == selected_action]
-        
+
         # تطبيق فلتر التاريخ
         if selected_date_range != "الكل":
             now = get_cairo_now()
@@ -7597,12 +7580,12 @@ def show_logs(db):
             elif selected_date_range == "آخر 30 يوم":
                 cutoff = now - timedelta(days=30)
                 filtered_logs = filtered_logs[filtered_logs["timestamp"] >= cutoff]
-        
+
         # أعمدة العرض
-        display_columns = ["timestamp", "username", "user_id", "action", "details", 
+        display_columns = ["timestamp", "username", "user_id", "action", "details",
                           "ip_address", "country", "city", "browser", "os", "device_type"]
         available = [c for c in display_columns if c in filtered_logs.columns]
-        
+
         st.markdown(f"**عدد السجلات:** {len(filtered_logs)}")
         st.dataframe(
             filtered_logs[available].sort_values("timestamp", ascending=False),
@@ -7621,7 +7604,7 @@ def show_logs(db):
                 "device_type": "الجهاز"
             }
         )
-        
+
         # حذف السجلات
         if st.session_state.user.get("role") == "System Admin" and "log_id" in filtered_logs.columns:
             st.markdown("---")
@@ -8072,7 +8055,7 @@ def _load_card_template_image_cached(image_ref, mtime):
     2) مرجع base64 قديم (للتوافق مع البيانات المخزنة سابقاً).
     3) ملف المستودع الثابت template_1.png كبديل آمن أخير."""
     ref = str(image_ref or "").strip()
-    
+
     # Handle file: reference format (new storage method)
     if ref.startswith("file:"):
         fname = ref[5:].strip()
@@ -8082,7 +8065,7 @@ def _load_card_template_image_cached(image_ref, mtime):
                 return Image.open(path).convert("RGB")
             except Exception:
                 pass
-    
+
     # Handle legacy base64: reference format (backward compatibility)
     if ref.startswith("base64:"):
         try:
@@ -8090,7 +8073,7 @@ def _load_card_template_image_cached(image_ref, mtime):
             return Image.open(BytesIO(img_bytes)).convert("RGB")
         except Exception:
             pass
-    
+
     # Try as a direct file path (legacy support)
     if ref:
         try:
@@ -8102,7 +8085,7 @@ def _load_card_template_image_cached(image_ref, mtime):
                 return Image.open(ref).convert("RGB")
         except Exception:
             pass
-    
+
     # Fallback to default template image
     return _load_repo_card_template_image()
 
@@ -8152,7 +8135,7 @@ def save_card_template_image(uploaded_file, max_dim=1200):
     if w > max_dim or h > max_dim:
         scale = min(max_dim / w, max_dim / h)
         img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
-    
+
     # Save image to local file and return a file reference
     try:
         os.makedirs(CARD_TEMPLATES_DIR, exist_ok=True)
@@ -8162,7 +8145,7 @@ def save_card_template_image(uploaded_file, max_dim=1200):
         image_ref = f"file:{fname}"
     except Exception as e:
         raise ValueError(f"تعذر حفظ ملف الصورة محلياً: {str(e)}")
-    
+
     return image_ref, img.size[0], img.size[1]
 
 
