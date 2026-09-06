@@ -1794,10 +1794,62 @@ class Database:
         self._df_to_sheet("Students", df, df.columns.tolist())
 
     # --- Attendance ---
-    ATTENDANCE_COLUMNS = ["record_id", "date", "time", "user_id", "name", "role", "section_id", "stage_id", "status", "notes", "recorded_by", "attendance_method"]
+    # Canonical member identifier is student_id (consistent with Students, FollowUp,
+    # EventAttendance sheets and all downstream reports). The older schema used user_id/name
+    # which caused a systemic mismatch: saves wrote student_id while the sheet expected user_id,
+    # silently dropping the identifier, and reads crashed with AttributeError on existing.student_id.
+    ATTENDANCE_COLUMNS = ["record_id", "date", "student_id", "full_name", "section_id", "status", "notes", "recorded_by"]
 
     def get_attendance(self):
         return self._sheet_to_df("Attendance")
+
+    def migrate_attendance_schema(self):
+        """
+        One-time migration: rename legacy columns in the Attendance sheet so the schema
+        matches ATTENDANCE_COLUMNS. Handles:
+          - user_id -> student_id
+          - name    -> full_name
+        Legacy columns not in ATTENDANCE_COLUMNS (time, role, stage_id, attendance_method)
+        are dropped. Existing values in user_id/name are preserved by renaming.
+        Safe to call repeatedly: it is a no-op once the schema is already migrated.
+        Returns True if a migration was performed, False if already up-to-date.
+        """
+        df = self._read_sheet_raw("Attendance")
+        if df.empty:
+            return False
+        rename_map = {}
+        if "student_id" not in df.columns and "user_id" in df.columns:
+            rename_map["user_id"] = "student_id"
+        if "full_name" not in df.columns and "name" in df.columns:
+            rename_map["name"] = "full_name"
+        if not rename_map:
+            return False
+        df = df.rename(columns=rename_map)
+        # Drop legacy columns that are no longer part of the schema
+        legacy_cols = [c for c in ["time", "role", "stage_id", "attendance_method"] if c in df.columns]
+        if legacy_cols:
+            df = df.drop(columns=legacy_cols)
+        self._df_to_sheet("Attendance", df, self.ATTENDANCE_COLUMNS)
+        return True
+
+    def get_attendance_by_date_section(self, date_str, section_id):
+        """
+        Return attendance rows for a given date and section.
+        Validates that the required columns exist before filtering so that downstream
+        code never hits an obscure AttributeError / KeyError on schema drift.
+        """
+        df = self.get_attendance()
+        if df.empty:
+            return pd.DataFrame(columns=self.ATTENDANCE_COLUMNS)
+        required = ["date", "section_id"]
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise ValueError(
+                f"ورقة 'Attendance' تفتقر إلى الأعمدة المطلوبة: {missing}. "
+                f"الأعمدة الموجودة: {df.columns.tolist()}. "
+                f"الأعمدة المتوقعة: {self.ATTENDANCE_COLUMNS}."
+            )
+        return df[(df["date"] == date_str) & (df["section_id"] == section_id)].copy()
 
     def batch_add_attendance(self, records_list):
         if not records_list:
@@ -1805,36 +1857,31 @@ class Database:
         df = self.get_attendance()
         if df.empty:
             df = pd.DataFrame(columns=self.ATTENDANCE_COLUMNS)
-        existing_ids = set(df["record_id"].tolist()) if not df.empty else set()
+        else:
+            # Guarantee all expected columns exist before operating on them
+            for col in self.ATTENDANCE_COLUMNS:
+                if col not in df.columns:
+                    df[col] = ""
+        existing_ids = set(df["record_id"].tolist()) if "record_id" in df.columns else set()
         new_records = []
         for rec in records_list:
             if rec.get("record_id") in existing_ids:
-                idx = df[df.record_id == rec["record_id"]].index[0]
+                idx = df[df["record_id"] == rec["record_id"]].index[0]
                 for k, v in rec.items():
                     if k in df.columns:
                         df.at[idx, k] = self._safe_str(v)
             else:
-                new_records.append(rec)
+                # Normalise every new record to the full schema so no column is ever missing
+                normalized = {col: self._safe_str(rec.get(col, "")) for col in self.ATTENDANCE_COLUMNS}
+                new_records.append(normalized)
         if new_records:
-            new_df = pd.DataFrame(new_records)
+            new_df = pd.DataFrame(new_records, columns=self.ATTENDANCE_COLUMNS)
             df = pd.concat([df, new_df], ignore_index=True)
         self._df_to_sheet("Attendance", df, self.ATTENDANCE_COLUMNS)
 
-    def get_attendance_by_date_user(self, date_str, user_id):
-        df = self.get_attendance()
-        if df.empty:
-            return pd.DataFrame()
-        return df[(df.date == date_str) & (df.user_id == user_id)]
-
-    def get_attendance_by_date_section(self, date_str, section_id):
-        df = self.get_attendance()
-        if df.empty:
-            return pd.DataFrame()
-        return df[(df.date == date_str) & (df.section_id == section_id)]
-
     def delete_attendance_record(self, record_id):
         df = self.get_attendance()
-        df = df[df.record_id != record_id]
+        df = df[df["record_id"] != record_id]
         self._df_to_sheet("Attendance", df, self.ATTENDANCE_COLUMNS)
 
 
@@ -5490,12 +5537,43 @@ def show_sections_page(db):
 # =============================================================================
 # Attendance
 # =============================================================================
+def _validate_attendance_df(df, context=""):
+    """
+    Validate that an attendance DataFrame exposes the columns required by the
+    attendance workflow. Returns a list of missing column names (empty = valid).
+    """
+    required = ["student_id", "status", "record_id"]
+    return [c for c in required if c not in df.columns]
+
+
+def _safe_match(existing_df, sid):
+    """
+    Safely return the rows in existing_df matching student_id == sid.
+    Handles missing columns, empty frames, and type mismatches between the
+    identifier in the sheet (often str) and the lookup value.
+    """
+    if existing_df is None or existing_df.empty:
+        return pd.DataFrame(columns=existing_df.columns if existing_df is not None else [])
+    if "student_id" not in existing_df.columns:
+        return pd.DataFrame(columns=existing_df.columns)
+    # Normalise both sides to string to avoid int vs str mismatch
+    mask = existing_df["student_id"].astype(str).str.strip() == str(sid).strip()
+    return existing_df[mask]
+
+
 def show_attendance(db):
     user = st.session_state.user
     role = user.get("role", "")
     user_id = user.get("user_id", "")
     st.markdown(hero_header("تسجيل الحضور", "📋 تسجيل ومتابعة حضور الطالبات"), unsafe_allow_html=True)
-    
+
+    # Migrate legacy Attendance schema (user_id/name -> student_id/full_name) once.
+    # Safe to call every run; it is a no-op once migrated.
+    try:
+        db.migrate_attendance_schema()
+    except Exception:
+        pass  # Never block the UI on a migration hiccup
+
     # Service Manager can view attendance for their sections but not edit
     if role == "Service Manager":
         section_ids = get_sections_for_supervisor(db, user_id)
@@ -5510,7 +5588,7 @@ def show_attendance(db):
         if supervised_sections.empty:
             st.info("لا توجد فصول معينة لك.")
             return
-        
+
         st.subheader("📊 عرض الحضور (للقراءة فقط)")
         selected_section = st.selectbox("اختر الفصل", supervised_sections["section_id"],
                                         format_func=lambda x: "—" if x not in supervised_sections["section_id"].values else supervised_sections[supervised_sections.section_id == x]["section_name"].values[0])
@@ -5529,7 +5607,7 @@ def show_attendance(db):
         display = existing.merge(section_students[["student_id", "full_name"]], on="student_id", how="left")
         st.dataframe(display[["full_name", "status", "notes"]], width="stretch")
         return
-    
+
     # Teacher and System Admin flow continues below
     sections = db.get_sections()
     if sections.empty:
@@ -5560,7 +5638,7 @@ def show_attendance(db):
     for _, s in section_students.iterrows():
         sid = s["student_id"]
         sname = s["full_name"]
-        prev = existing[existing.student_id == sid] if already_filled else pd.DataFrame()
+        prev = _safe_match(existing, sid) if already_filled else pd.DataFrame()
         prev_status = prev.iloc[0]["status"] if not prev.empty else "حاضر"
         prev_notes = prev.iloc[0]["notes"] if not prev.empty else ""
         cols = st.columns([3, 2, 2])
@@ -5576,12 +5654,16 @@ def show_attendance(db):
         with st.spinner("جاري حفظ الحضور..."):
             records = []
             for sid, status in statuses.items():
-                prev_record = existing[existing.student_id == sid] if already_filled else pd.DataFrame()
+                prev_record = _safe_match(existing, sid) if already_filled else pd.DataFrame()
                 record_id = prev_record.iloc[0]["record_id"] if not prev_record.empty else str(uuid.uuid4())
+                # Resolve the student's full name for the denormalised column
+                name_match = section_students[section_students["student_id"].astype(str).str.strip() == str(sid).strip()]
+                sname = name_match["full_name"].values[0] if not name_match.empty else ""
                 records.append({
                     "record_id": record_id, "date": date_str, "student_id": sid,
+                    "full_name": sname, "section_id": selected_section,
                     "status": status, "notes": notes_dict.get(sid, ""),
-                    "recorded_by": user.get("user_id", ""), "section_id": selected_section
+                    "recorded_by": user.get("user_id", "")
                 })
             db.batch_add_attendance(records)
             db.add_log(user.get("user_id", ""), f"تسجيل حضور فصل {selected_section} ليوم {date_str}")
@@ -5593,18 +5675,18 @@ def show_attendance(db):
         st.subheader("🗑️ إدارة سجلات الحضور السابقة")
         rec = existing.copy()
         rec["student_name"] = rec["student_id"].apply(
-            lambda sid: section_students[section_students.student_id == sid]["full_name"].values[0]
+            lambda sid: section_students[section_students["student_id"].astype(str).str.strip() == str(sid).strip()]["full_name"].values[0]
             if sid in section_students["student_id"].values else sid
         )
         rec = rec[["record_id", "student_name", "status", "notes"]]
         st.dataframe(rec, width="stretch")
-        
+
         # Teacher can only delete attendance records they created
         can_delete_attendance = True
         if role == "Teacher":
             can_delete_attendance = False
             st.warning("⛔ لا يمكنك حذف سجل حضور سجلته مدرسة أخرى.")
-        
+
         if role == "System Admin" and can_delete_attendance:
             del_id = st.selectbox("اختر سجل حضور لحذفه", rec["record_id"], key="del_att_sel")
             if st.button("حذف سجل الحضور"):
