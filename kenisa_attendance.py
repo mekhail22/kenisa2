@@ -876,14 +876,14 @@ def inject_floating_controls_css():
         background-color: #2563eb !important;
         color: #ffffff !important;
         border: none !important;
-        border-radius: 8px !important;
-        height: 36px !important;
-        min-height: 36px !important;
-        max-height: 36px !important;
-        padding: 0 14px !important;
+        border-radius: 9px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+        padding: 0 16px !important;
         font-weight: 600 !important;
-        font-size: 0.8rem !important;
-        line-height: 36px !important;
+        font-size: 0.85rem !important;
+        line-height: 40px !important;
         box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18) !important;
         white-space: nowrap !important;
         width: auto !important;
@@ -909,11 +909,11 @@ def inject_floating_controls_css():
     /* Burger button: square, icon only */
     .st-key-floating_admin_menu_btn button,
     .st-key-floating_student_menu_btn button {
-        width: 36px !important;
-        min-width: 36px !important;
-        max-width: 36px !important;
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
         padding: 0 !important;
-        font-size: 1.05rem !important;
+        font-size: 1.1rem !important;
         letter-spacing: 0 !important;
     }
     /* ===== Safe-area + narrow-viewport tuning ===== */
@@ -929,21 +929,21 @@ def inject_floating_controls_css():
         .st-key-floating_help_center_btn button,
         .st-key-floating_admin_menu_btn button,
         .st-key-floating_student_menu_btn button {
-            height: 32px !important;
-            min-height: 32px !important;
-            max-height: 32px !important;
-            padding: 0 10px !important;
-            font-size: 0.72rem !important;
-            line-height: 32px !important;
-            border-radius: 7px !important;
+            height: 36px !important;
+            min-height: 36px !important;
+            max-height: 36px !important;
+            padding: 0 12px !important;
+            font-size: 0.78rem !important;
+            line-height: 36px !important;
+            border-radius: 8px !important;
         }
         .st-key-floating_admin_menu_btn button,
         .st-key-floating_student_menu_btn button {
-            width: 32px !important;
-            min-width: 32px !important;
-            max-width: 32px !important;
+            width: 36px !important;
+            min-width: 36px !important;
+            max-width: 36px !important;
             padding: 0 !important;
-            font-size: 0.95rem !important;
+            font-size: 1rem !important;
         }
     }
     @media (max-width: 380px) {
@@ -2733,6 +2733,24 @@ def show_login_page(db, jwt_secret):
     # Hero banner for login page
     st.markdown(hero_header("نظام إدارة الكنيسة", "كنيسة الشهيدة دميانة"), unsafe_allow_html=True)
     show_initialization(db)
+    # Constrain login form width on large screens for better proportions
+    st.markdown("""
+    <style>
+    /* Slightly reduce login form fields width on large screens only */
+    @media (min-width: 768px) {
+        form[data-testid="stForm"] {
+            max-width: 420px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+    }
+    @media (min-width: 1200px) {
+        form[data-testid="stForm"] {
+            max-width: 380px !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["🔐 دخول الخدام", "📝 تسجيل دخول الطالبات"])
     with tab1:
         with st.form("login_form"):
