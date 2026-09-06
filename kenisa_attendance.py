@@ -4826,9 +4826,11 @@ def show_members_cards_page(db):
                     """, unsafe_allow_html=True)
 
                 # Action buttons
+                # Use idx (DataFrame loop index) to ensure widget keys are always unique
+                # even if member_id is missing, duplicate, or contains non-unique values
                 action_cols = st.columns(4)
                 with action_cols[0]:
-                    if st.button("📋", key=f"view_{mid}"):
+                    if st.button("📋", key=f"view_{mid}_{idx}"):
                         st.session_state.profile_user_id = mid
                         st.rerun()
                 
@@ -4848,7 +4850,7 @@ def show_members_cards_page(db):
                 if role == "System Admin" and can_edit_delete:
                     with action_cols[1]:
                         if status == "active":
-                            if st.button("⏸️", key=f"deact_{mid}"):
+                            if st.button("⏸️", key=f"deact_{mid}_{idx}"):
                                 if member_type == "student":
                                     db.update_student(mid, {"status": "inactive"})
                                 else:
@@ -4858,7 +4860,7 @@ def show_members_cards_page(db):
                                 time.sleep(1)
                                 st.rerun()
                         else:
-                            if st.button("▶️", key=f"act_{mid}"):
+                            if st.button("▶️", key=f"act_{mid}_{idx}"):
                                 if member_type == "student":
                                     db.update_student(mid, {"status": "active"})
                                 else:
@@ -4868,11 +4870,11 @@ def show_members_cards_page(db):
                                 time.sleep(1)
                                 st.rerun()
                     with action_cols[2]:
-                        if st.button("✏️", key=f"edit_{mid}"):
-                            st.session_state[f"edit_mode_{mid}"] = True
+                        if st.button("✏️", key=f"edit_{mid}_{idx}"):
+                            st.session_state[f"edit_mode_{mid}_{idx}"] = True
                     with action_cols[3]:
-                        if st.button("🗑️", key=f"del_{mid}"):
-                            confirm = st.checkbox(f"تأكيد الحذف؟", key=f"confirm_del_{mid}")
+                        if st.button("🗑️", key=f"del_{mid}_{idx}"):
+                            confirm = st.checkbox(f"تأكيد الحذف؟", key=f"confirm_del_{mid}_{idx}")
                             if confirm:
                                 if member_type == "student":
                                     db.delete_student(mid)
@@ -4884,11 +4886,11 @@ def show_members_cards_page(db):
                                 st.rerun()
                 elif role == "Teacher" and can_edit_delete and member_type == "student":
                     with action_cols[2]:
-                        if st.button("✏️", key=f"edit_{mid}"):
-                            st.session_state[f"edit_mode_{mid}"] = True
+                        if st.button("✏️", key=f"edit_{mid}_{idx}"):
+                            st.session_state[f"edit_mode_{mid}_{idx}"] = True
                     with action_cols[3]:
-                        if st.button("🗑️", key=f"del_{mid}"):
-                            confirm = st.checkbox(f"تأكيد الحذف؟", key=f"confirm_del_{mid}")
+                        if st.button("🗑️", key=f"del_{mid}_{idx}"):
+                            confirm = st.checkbox(f"تأكيد الحذف؟", key=f"confirm_del_{mid}_{idx}")
                             if confirm:
                                 db.delete_student(mid)
                                 db.add_log(user.get("user_id", ""), "حذف طالبة", f"تم حذف {full_name}")
@@ -4904,12 +4906,12 @@ def show_members_cards_page(db):
                     st.markdown("<span class='card-badge inactive'>🪪 البطاقة: غير صادرة</span>", unsafe_allow_html=True)
 
                 # زر واحد فقط — الضغط عليه يوفر جميع إجراءات التصدير (عرض / إعادة / تحميل)
-                with st.popover("🪪 إجراءات تصدير البطاقة", help="عرض / إعادة / تحميل البطاقة", key=f"card_export_pop_{mid}", width="stretch"):
-                    if st.button("👁️ عرض", help="عرض البطاقة", key=f"card_view_{mid}", width="stretch"):
+                with st.popover("🪪 إجراءات تصدير البطاقة", help="عرض / إعادة / تحميل البطاقة", key=f"card_export_pop_{mid}_{idx}", width="stretch"):
+                    if st.button("👁️ عرض", help="عرض البطاقة", key=f"card_view_{mid}_{idx}", width="stretch"):
                         st.session_state.card_preview_member = str(mid)
                         st.session_state.pop("card_download_member", None)
                         st.rerun()
-                    if st.button("🔄 إعادة", help="إعادة إنشاء البطاقة", key=f"card_regen_{mid}", width="stretch"):
+                    if st.button("🔄 إعادة", help="إعادة إنشاء البطاقة", key=f"card_regen_{mid}_{idx}", width="stretch"):
                         if selected_card_tpl is None:
                             st.error("⚠️ لا يوجد Template صالح للبطاقات.")
                         else:
@@ -4927,15 +4929,15 @@ def show_members_cards_page(db):
                                 st.error(f"❌ {ve}")
                             except Exception as e:
                                 st.error(f"❌ فشل إنشاء البطاقة: {e}")
-                    if st.button("⬇️ تحميل", help="تحميل البطاقة PNG", key=f"card_dl_{mid}", width="stretch"):
+                    if st.button("⬇️ تحميل", help="تحميل البطاقة PNG", key=f"card_dl_{mid}_{idx}", width="stretch"):
                         st.session_state.card_download_member = str(mid)
                         st.session_state.pop("card_preview_member", None)
                         st.rerun()
 
                 # Edit form
-                if st.session_state.get(f"edit_mode_{mid}", False):
+                if st.session_state.get(f"edit_mode_{mid}_{idx}", False):
                     with st.expander("✏️ تعديل البيانات", expanded=True):
-                        with st.form(f"edit_member_form_{mid}"):
+                        with st.form(f"edit_member_form_{mid}_{idx}"):
                             edit_name = st.text_input("الاسم الكامل*", value=full_name)
                             edit_phone = st.text_input("الهاتف", value=phone)
                             edit_email = st.text_input("البريد الإلكتروني", value=phone if member_role in ["Service Manager", "Teacher"] else "")
@@ -4956,7 +4958,7 @@ def show_members_cards_page(db):
                                     stages[stages.stage_id == x]["stage_name"].values[0]
                                     if not stages.empty and x in stages["stage_id"].values else x
                                 ),
-                                key=f"edit_stage_{mid}"
+                                key=f"edit_stage_{mid}_{idx}"
                             ) if stage_ids_edit else ""
                             
                             # Student specific fields
@@ -4992,7 +4994,7 @@ def show_members_cards_page(db):
                                 else:
                                     db.update_user(mid, {"full_name": edit_name, "phone": edit_phone, "email": edit_email, "section_id": edit_section, "stage_id": edit_stage})
                                 db.add_log(user.get("user_id", ""), "تعديل عضو", f"تم تعديل {edit_name}")
-                                st.session_state[f"edit_mode_{mid}"] = False
+                                st.session_state[f"edit_mode_{mid}_{idx}"] = False
                                 st.success("✅ تم التحديث")
                                 time.sleep(1)
                                 st.rerun()
