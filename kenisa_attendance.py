@@ -970,14 +970,14 @@ def inject_floating_controls_css():
 
 def render_floating_help_center_button():
     """Blue 'مركز المساعدة' floating button — call at most once per Streamlit run."""
-    if st.button("مركز المساعدة", key="floating_help_center_btn", use_container_width=False):
+    if st.button("مركز المساعدة", key="floating_help_center_btn", width="content"):
         st.session_state.open_help_dialog = True
         st.rerun()
 
 
 def render_floating_burger_button(button_key, open_handler):
     """Small blue hamburger ☰ floating button — opens the side menu."""
-    if st.button("☰", key=button_key, use_container_width=False):
+    if st.button("☰", key=button_key, width="content"):
         open_handler()
         st.rerun()
 
@@ -1174,7 +1174,7 @@ def under_development_page(title, subtitle, message, button_label="العودة 
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button(button_label, use_container_width=True, key=button_key or "under_dev_back"):
+    if st.button(button_label, width="stretch", key=button_key or "under_dev_back"):
         st.session_state.show_exam_portal = False
         st.rerun()
 
@@ -1395,11 +1395,35 @@ class Database:
     def _sheet_to_df(self, sheet_name):
         return self._get_cached_df(sheet_name, lambda: self._read_sheet_raw(sheet_name))
 
+    # Google Sheets cell limit: 50,000 characters per cell
+    GOOGLE_SHEETS_CELL_LIMIT = 50000
+
+    @staticmethod
+    def _validate_cell_values(df, columns, sheet_name=""):
+        """
+        التحقق من عدم تجاوز قيم الخلايا لحد Google Sheets (50,000 حرف لكل خلية).
+        تُثير خطأ واضح يحدد الحقل المتجاوز بدلاً من السماح بفشل  opaque API.
+        """
+        for col in columns:
+            if col not in df.columns:
+                continue
+            for idx, val in df[col].items():
+                val_str = str(val) if val is not None else ""
+                if len(val_str) > Database.GOOGLE_SHEETS_CELL_LIMIT:
+                    raise ValueError(
+                        f"قيمة الحقل '{col}' في الصف {idx} تتجاوز الحد المسموح "
+                        f"في Google Sheets ({len(val_str):,} > {Database.GOOGLE_SHEETS_CELL_LIMIT:,} حرف). "
+                        f"ورقة البيانات: '{sheet_name}'. "
+                        f"يجب تخزين البيانات الكبيرة (مثل الصور) كملفات والاحتفاظ بالمرجع فقط."
+                    )
+
     def _df_to_sheet(self, sheet_name, df, columns):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("df must be a DataFrame")
         if not isinstance(columns, list) or not columns:
             raise ValueError("columns must be a non-empty list")
+        # Validate cell values before writing to Google Sheets
+        Database._validate_cell_values(df, columns, sheet_name)
         Database._rate_limit()
         ws = self._get_or_create_worksheet(sheet_name, columns)
         for col in columns:
@@ -2420,7 +2444,7 @@ def generate_token(user: dict, secret: str) -> str:
         "user_id": user.get("user_id", ""), "role": user.get("role", ""),
         "full_name": user.get("full_name", ""), "section_id": user.get("section_id", ""),
         "status": user.get("status", "active"),
-        "exp": datetime.utcnow() + timedelta(hours=SESSION_TIMEOUT_HOURS)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=SESSION_TIMEOUT_HOURS)
     }
     return jwt.encode(payload, secret, algorithm="HS256")
 
@@ -2534,7 +2558,7 @@ def show_help_dialog():
     with hdr_col1:
         st.markdown("<h3 style='text-align:center; color:#667eea; margin:0; padding-top:0.5rem;'>📬 تواصل معنا</h3>", unsafe_allow_html=True)
     with hdr_col2:
-        if st.button("✕ إغلاق", key="help_dialog_close_btn", use_container_width=True):
+        if st.button("✕ إغلاق", key="help_dialog_close_btn", width="stretch"):
             st.session_state.open_help_dialog = False
             st.rerun()
     contact_name, contact_whatsapp = get_support_config()
@@ -2551,7 +2575,7 @@ def show_help_dialog():
             urgency = st.selectbox("الأولوية", ["عادي", "مستعجل", "طارئ جداً"], index=0)
         issue_desc = st.text_area("وصف المشكلة أو الطلب *", placeholder="اشرح المشكلة بالتفصيل...", height=150)
         uploaded_file = st.file_uploader("📎 إرفاق لقطة شاشة (اختياري)", type=["png", "jpg", "jpeg"])
-        submitted = st.form_submit_button("🚀 إرسال الطلب", use_container_width=True)
+        submitted = st.form_submit_button("🚀 إرسال الطلب", width="stretch")
         if submitted:
             if not name or not whatsapp or not issue_desc:
                 st.error("⚠️ الرجاء ملء جميع الحقول المطلوبة")
@@ -2714,7 +2738,7 @@ def show_initialization(db):
     if users.empty:
         st.markdown("<div class='card'><h2 style='text-align:center;'>🔧 لا يوجد مستخدمون بعد</h2></div>", unsafe_allow_html=True)
         st.markdown("#### يرجى الضغط على الزر التالي لإنشاء مدير النظام الافتراضي:")
-        if st.button("🛠️ تهيئة النظام وإنشاء المسؤول الأول", use_container_width=True, key="init_admin_btn"):
+        if st.button("🛠️ تهيئة النظام وإنشاء المسؤول الأول", width="stretch", key="init_admin_btn"):
             admin_data = {
                 "user_id": "admin-001", "username": "admin", "password": "admin123",
                 "role": "System Admin", "full_name": "مدير النظام",
@@ -2756,7 +2780,7 @@ def show_login_page(db, jwt_secret):
         with st.form("login_form"):
             username = st.text_input("اسم المستخدم", placeholder="أدخل اسم المستخدم").strip()
             password = st.text_input("كلمة المرور", type="password", placeholder="أدخل كلمة المرور").strip()
-            if st.form_submit_button("تسجيل الدخول", use_container_width=True):
+            if st.form_submit_button("تسجيل الدخول", width="stretch"):
                 if not username or not password:
                     st.error("يرجى إدخال اسم المستخدم وكلمة المرور")
                 else:
@@ -2792,7 +2816,7 @@ def show_login_page(db, jwt_secret):
             with st.form("student_login_form"):
                 code = st.text_input("كود الطالبة", placeholder="مثال: STU000001").strip()
                 passwd = st.text_input("كلمة مرور الطالبة", type="password", placeholder="").strip()
-                if st.form_submit_button("تسجيل الدخول", use_container_width=True):
+                if st.form_submit_button("تسجيل الدخول", width="stretch"):
                     if not code or not passwd:
                         st.error("الرجاء إدخال كود الطالبة وكلمة المرور")
                     else:
@@ -2888,7 +2912,7 @@ def show_unified_assessment_taking_interface(db):
     if not can_access:
         st.warning(deny_reason or "غير مصرح بالدخول إلى هذا الاختبار.")
         st.session_state.quiz_interface_started = False
-        if st.button("العودة إلى المسابقات والاختبارات", use_container_width=True):
+        if st.button("العودة إلى المسابقات والاختبارات", width="stretch"):
             clear_assessment_session_state()
             st.session_state.student_dashboard_page = STUDENT_ASSESSMENTS_PAGE
             st.rerun()
@@ -2898,7 +2922,7 @@ def show_unified_assessment_taking_interface(db):
     if status == "submitted":
         st.warning("⚠️ لقد قمتِ بإنجاز هذا الاختبار بالفعل.")
         st.session_state.quiz_interface_started = False
-        if st.button("العودة إلى المسابقات والاختبارات", use_container_width=True):
+        if st.button("العودة إلى المسابقات والاختبارات", width="stretch"):
             clear_assessment_session_state()
             st.session_state.student_dashboard_page = STUDENT_ASSESSMENTS_PAGE
             st.rerun()
@@ -2932,7 +2956,7 @@ def show_unified_assessment_taking_interface(db):
         questions, shuffled_options = load_assessment_questions(db, a_type, a_id)
         if not questions:
             st.warning("لا توجد أسئلة في هذا الاختبار.")
-            if st.button("🔙 العودة", use_container_width=True):
+            if st.button("🔙 العودة", width="stretch"):
                 st.session_state.quiz_interface_started = False
                 st.rerun()
             return
@@ -2989,7 +3013,7 @@ def show_unified_assessment_taking_interface(db):
         result = st.session_state.assessment_result or {}
         st.success("✅ تم تسليم الاختبار بنجاح!")
         st.info(f"**درجتك:** {result.get('score', 0)} / {result.get('total_marks', 0)}")
-        if st.button("🔙 العودة إلى المسابقات والاختبارات", use_container_width=True):
+        if st.button("🔙 العودة إلى المسابقات والاختبارات", width="stretch"):
             clear_assessment_session_state()
             st.session_state.student_dashboard_page = STUDENT_ASSESSMENTS_PAGE
             st.rerun()
@@ -3030,15 +3054,15 @@ def show_unified_assessment_taking_interface(db):
     st.markdown("---")
     col_prev, col_mid, col_next = st.columns([1, 2, 1])
     with col_prev:
-        if st.button("⬅️ السابق", use_container_width=True, disabled=current_index == 0, key="assess_prev"):
+        if st.button("⬅️ السابق", width="stretch", disabled=current_index == 0, key="assess_prev"):
             st.session_state.assessment_question_index = max(0, current_index - 1)
             st.rerun()
     with col_mid:
-        if st.button("🚨 تسليم الاختبار", use_container_width=True, key="assess_finish"):
+        if st.button("🚨 تسليم الاختبار", width="stretch", key="assess_finish"):
             st.session_state.assessment_confirm_finish = True
             st.rerun()
     with col_next:
-        if st.button("التالي ➡️", use_container_width=True, disabled=current_index >= total_questions - 1, key="assess_next"):
+        if st.button("التالي ➡️", width="stretch", disabled=current_index >= total_questions - 1, key="assess_next"):
             st.session_state.assessment_question_index = min(total_questions - 1, current_index + 1)
             st.rerun()
 
@@ -3046,12 +3070,12 @@ def show_unified_assessment_taking_interface(db):
         st.warning("⚠️ هل أنت متأكدة من تسليم الاختبار؟ لن تتمكني من تعديل إجاباتك بعد التسليم.")
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("✅ نعم، تسليم", use_container_width=True, key="assess_yes"):
+            if st.button("✅ نعم، تسليم", width="stretch", key="assess_yes"):
                 submit_internal(auto=False)
                 st.session_state.assessment_confirm_finish = False
                 st.rerun()
         with c2:
-            if st.button("❌ تراجع", use_container_width=True, key="assess_no"):
+            if st.button("❌ تراجع", width="stretch", key="assess_no"):
                 st.session_state.assessment_confirm_finish = False
                 st.rerun()
 
@@ -3485,7 +3509,7 @@ def render_student_sidebar(db, student, menu_items, current_page):
             st.caption("طالبة")
         
 
-        if st.button("✕ إغلاق", key="student_sidebar_close_text_btn", use_container_width=True):
+        if st.button("✕ إغلاق", key="student_sidebar_close_text_btn", width="stretch"):
             st.session_state.sidebar_open = False
             st.rerun()
 
@@ -3495,13 +3519,13 @@ def render_student_sidebar(db, student, menu_items, current_page):
             if item == "🚪 تسجيل الخروج":
                 continue
             btn_type = "primary" if item == current_page else "secondary"
-            if st.button(item, key=f"student_nav_{item}", use_container_width=True, type=btn_type):
+            if st.button(item, key=f"student_nav_{item}", width="stretch", type=btn_type):
                 st.session_state.student_dashboard_page = item
                 st.session_state.sidebar_open = False
                 st.rerun()
 
         st.markdown("---")
-        if st.button("🚪 تسجيل الخروج", use_container_width=True, key="student_logout_btn"):
+        if st.button("🚪 تسجيل الخروج", width="stretch", key="student_logout_btn"):
             student_logout(db)
 
 
@@ -3622,7 +3646,7 @@ def show_student_grades_tab(db, student):
             "submission_time": "التاريخ",
             "status": "الحالة"
         }),
-        use_container_width=True
+        width="stretch"
     )
 
 
@@ -3726,7 +3750,7 @@ def show_student_notifications_tab(db, student):
         """, unsafe_allow_html=True)
     
     # زر تحديد الكل كمقروء
-    if st.button("✅ تحديد الكل كمقروء", use_container_width=True, key="mark_all_read_btn"):
+    if st.button("✅ تحديد الكل كمقروء", width="stretch", key="mark_all_read_btn"):
         for _, notif in notifications.iterrows():
             if notif.get("is_read", "False") != "True":
                 db.mark_notification_read(notif.get("notification_id", ""))
@@ -3839,7 +3863,7 @@ def render_student_attempt_review(db, student, result_id, result_type):
             </div>
             """, unsafe_allow_html=True)
 
-    if st.button("⬅️ العودة إلى المسابقات والاختبارات", key=f"back_from_review_{result_id}", use_container_width=True):
+    if st.button("⬅️ العودة إلى المسابقات والاختبارات", key=f"back_from_review_{result_id}", width="stretch"):
         st.session_state.review_result_id = None
         st.session_state.review_result_type = None
         st.rerun()
@@ -3931,7 +3955,7 @@ def show_student_profile_tab(db, student):
             edit_address = st.text_input("العنوان", value=student.get("address", ""))
             edit_school = st.text_input("المدرسة", value=student.get("school", ""))
             edit_notes = st.text_area("ملاحظات", value=student.get("notes", ""))
-            submitted = st.form_submit_button("💾 حفظ البيانات", use_container_width=True)
+            submitted = st.form_submit_button("💾 حفظ البيانات", width="stretch")
             if submitted:
                 if not edit_name:
                     st.error("الاسم الكامل مطلوب")
@@ -4202,11 +4226,11 @@ def _render_assessment_start_confirmation(db, student, confirmation):
 
     col_cancel, col_confirm = st.columns(2)
     with col_cancel:
-        if st.button("إلغاء", use_container_width=True, key="cancel_assessment_start"):
+        if st.button("إلغاء", width="stretch", key="cancel_assessment_start"):
             st.session_state.assessment_confirmation = None
             st.rerun()
     with col_confirm:
-        if st.button("أوافق وأبدأ الاختبار", use_container_width=True, key="confirm_assessment_start"):
+        if st.button("أوافق وأبدأ الاختبار", width="stretch", key="confirm_assessment_start"):
             clear_assessment_session_state()
             st.session_state.selected_assessment_type = a_type
             st.session_state.selected_assessment_id = a_id
@@ -4260,7 +4284,7 @@ def _render_student_available_assessments(db, student):
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button(btn_label, key=f"start_{a_type}_{a_id}", use_container_width=True):
+            if st.button(btn_label, key=f"start_{a_type}_{a_id}", width="stretch"):
                 st.session_state.assessment_confirmation = {"type": a_type, "id": a_id}
                 st.rerun()
 
@@ -4329,7 +4353,7 @@ def _render_student_available_assessments(db, student):
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button("📖 مراجعة الأسئلة والإجابات", key=f"comp_review_{attempt_type}_{result_id}", use_container_width=True):
+            if st.button("📖 مراجعة الأسئلة والإجابات", key=f"comp_review_{attempt_type}_{result_id}", width="stretch"):
                 st.session_state.review_result_id = result_id
                 st.session_state.review_result_type = attempt_type
                 st.rerun()
@@ -4396,7 +4420,7 @@ def show_sidebar_navigation(db):
             pass
 
         # ===== Collapse button =====
-        if st.button("إخفاء القائمة", key="hide_sidebar_btn", use_container_width=True):
+        if st.button("إخفاء القائمة", key="hide_sidebar_btn", width="stretch"):
             st.session_state.show_sidebar = False
             st.rerun()
 
@@ -4410,7 +4434,7 @@ def show_sidebar_navigation(db):
         st.markdown('<div class="sidebar-nav nav-btn-container">', unsafe_allow_html=True)
         for item in menu_items:
             btn_type = "primary" if item == current_choice else "secondary"
-            if st.button(item, key=f"nav_btn_{item}", use_container_width=True, type=btn_type):
+            if st.button(item, key=f"nav_btn_{item}", width="stretch", type=btn_type):
                 if item != current_choice:
                     st.session_state.menu_choice = item
                 st.session_state.show_sidebar = False
@@ -4419,7 +4443,7 @@ def show_sidebar_navigation(db):
 
         # ===== Sidebar footer =====
         st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
-        if st.button("تسجيل الخروج", use_container_width=True, key="logout_btn"):
+        if st.button("تسجيل الخروج", width="stretch", key="logout_btn"):
             logout(db)
         st.markdown('</div>', unsafe_allow_html=True)
     return current_choice
@@ -4500,7 +4524,7 @@ def show_dashboard(db):
         if not recent.empty:
             fig = px.histogram(recent, x="date", color="status", barmode="group")
             fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("لا توجد بيانات حضور للأيام الماضية.")
     else:
@@ -4514,7 +4538,7 @@ def show_dashboard(db):
             absent_counts = absent_counts.sort_values("أيام الغياب", ascending=False).head(5)
             if not students.empty and "student_id" in students.columns and "full_name" in students.columns:
                 absent_counts = absent_counts.merge(students[["student_id", "full_name"]], on="student_id", how="left")
-            st.dataframe(absent_counts[["full_name", "أيام الغياب"]], use_container_width=True)
+            st.dataframe(absent_counts[["full_name", "أيام الغياب"]], width="stretch")
         else:
             st.info("لا يوجد غياب هذا الشهر.")
     st.markdown("#### 🔔 بنات بحاجة لافتقاد عاجل")
@@ -4522,7 +4546,7 @@ def show_dashboard(db):
     if not urgent.empty:
         if not students.empty and "student_id" in students.columns and "full_name" in students.columns:
             urgent = urgent.merge(students[["student_id", "full_name"]], on="student_id", how="left")
-        st.dataframe(urgent[["full_name", "followup_date", "notes"]], use_container_width=True)
+        st.dataframe(urgent[["full_name", "followup_date", "notes"]], width="stretch")
     else:
         st.info("كل البنات منتظمات.")
     if role in ["System Admin", "Father Account", "Service Manager"]:
@@ -4542,7 +4566,7 @@ def show_dashboard(db):
                     if not section_scores.empty:
                         top_section = section_scores.sort_values("score", ascending=False).iloc[0]
                         st.metric(f"أفضل فصل: {top_section.get('section_name', '')}", f"{top_section.get('score', 0):.1f} / 20 متوسط")
-                        st.dataframe(section_scores.rename(columns={"section_name": "الفصل", "score": "متوسط الدرجات"}).set_index("الفصل"), use_container_width=True)
+                        st.dataframe(section_scores.rename(columns={"section_name": "الفصل", "score": "متوسط الدرجات"}).set_index("الفصل"), width="stretch")
 
 
 # =============================================================================
@@ -4708,7 +4732,13 @@ def show_members_cards_page(db):
         for idx, (_, m) in enumerate(filtered.iterrows()):
             col = cols[idx % 3]
             with col:
+                # Use member_id (UUID from user_id/student_id) for widget keys
+                # Fall back to DataFrame index if member_id is empty or not unique
                 mid = m.get("member_id", "")
+                if not mid or not str(mid).strip():
+                    mid = f"row_{idx}"
+                else:
+                    mid = str(mid).strip()
                 full_name = m.get("full_name", "غير معروف")
                 member_role = m.get("role", "")
                 sec_id = m.get("section_id", "")
@@ -4874,12 +4904,12 @@ def show_members_cards_page(db):
                     st.markdown("<span class='card-badge inactive'>🪪 البطاقة: غير صادرة</span>", unsafe_allow_html=True)
 
                 # زر واحد فقط — الضغط عليه يوفر جميع إجراءات التصدير (عرض / إعادة / تحميل)
-                with st.popover("🪪 إجراءات تصدير البطاقة", help="عرض / إعادة / تحميل البطاقة", key=f"card_export_pop_{mid}", use_container_width=True):
-                    if st.button("👁️ عرض", help="عرض البطاقة", key=f"card_view_{mid}", use_container_width=True):
+                with st.popover("🪪 إجراءات تصدير البطاقة", help="عرض / إعادة / تحميل البطاقة", key=f"card_export_pop_{mid}", width="stretch"):
+                    if st.button("👁️ عرض", help="عرض البطاقة", key=f"card_view_{mid}", width="stretch"):
                         st.session_state.card_preview_member = str(mid)
                         st.session_state.pop("card_download_member", None)
                         st.rerun()
-                    if st.button("🔄 إعادة", help="إعادة إنشاء البطاقة", key=f"card_regen_{mid}", use_container_width=True):
+                    if st.button("🔄 إعادة", help="إعادة إنشاء البطاقة", key=f"card_regen_{mid}", width="stretch"):
                         if selected_card_tpl is None:
                             st.error("⚠️ لا يوجد Template صالح للبطاقات.")
                         else:
@@ -4897,7 +4927,7 @@ def show_members_cards_page(db):
                                 st.error(f"❌ {ve}")
                             except Exception as e:
                                 st.error(f"❌ فشل إنشاء البطاقة: {e}")
-                    if st.button("⬇️ تحميل", help="تحميل البطاقة PNG", key=f"card_dl_{mid}", use_container_width=True):
+                    if st.button("⬇️ تحميل", help="تحميل البطاقة PNG", key=f"card_dl_{mid}", width="stretch"):
                         st.session_state.card_download_member = str(mid)
                         st.session_state.pop("card_preview_member", None)
                         st.rerun()
@@ -4992,11 +5022,11 @@ def show_members_cards_page(db):
                             data=png_p,
                             file_name=_card_filename_for(mm_p),
                             mime="image/png",
-                            use_container_width=True,
+                            width="stretch",
                             key="single_card_dl_btn",
                         )
                     with pcol2:
-                        if st.button("✕ إغلاق المعاينة", use_container_width=True, key="close_card_preview"):
+                        if st.button("✕ إغلاق المعاينة", width="stretch", key="close_card_preview"):
                             st.session_state.pop("card_preview_member", None)
                             st.session_state.pop("card_download_member", None)
                             st.rerun()
@@ -5022,7 +5052,7 @@ def show_members_cards_page(db):
         if len(bulk_mids) > 150:
             st.warning(f"⚠️ عدد كبير من الأعضاء ({len(bulk_mids)}). قد تستغرق العملية وقتاً أطول.")
         bcol1, _bcol2 = st.columns(2)
-        if bcol1.button("🛠️ تجهيز البطاقات المحددة", use_container_width=True, key="bulk_cards_prepare"):
+        if bcol1.button("🛠️ تجهيز البطاقات المحددة", width="stretch", key="bulk_cards_prepare"):
             if selected_card_tpl is None:
                 st.error("⚠️ لا يوجد Template للبطاقات. أنشئ قالباً من صفحة '🪪 تجهيز البطاقات' أولاً.")
             else:
@@ -5071,7 +5101,7 @@ def show_members_cards_page(db):
                 data=zip_buf.getvalue(),
                 file_name="cards.zip",
                 mime="application/zip",
-                use_container_width=True,
+                width="stretch",
                 key="bulk_cards_zip_dl",
             )
         for err_line in (st.session_state.get("bulk_cards_errors") or [])[:10]:
@@ -5194,7 +5224,7 @@ def show_stages_page(db):
             stage_view["supervisors"] = ""
         view_cols = ["stage_name", "status", "num_sections", "num_students", "supervisors"]
         available_cols = [c for c in view_cols if c in stage_view.columns]
-        st.dataframe(stage_view[available_cols].rename(columns={"stage_name": "المرحلة", "status": "الحالة", "num_sections": "عدد الفصول", "num_students": "عدد الطلاب", "supervisors": "المشرفون"}), use_container_width=True)
+        st.dataframe(stage_view[available_cols].rename(columns={"stage_name": "المرحلة", "status": "الحالة", "num_sections": "عدد الفصول", "num_students": "عدد الطلاب", "supervisors": "المشرفون"}), width="stretch")
     else:
         st.info("لا توجد مراحل مسجلة.")
 
@@ -5495,7 +5525,7 @@ def show_attendance(db):
             return
         # Merge student names
         display = existing.merge(section_students[["student_id", "full_name"]], on="student_id", how="left")
-        st.dataframe(display[["full_name", "status", "notes"]], use_container_width=True)
+        st.dataframe(display[["full_name", "status", "notes"]], width="stretch")
         return
     
     # Teacher and System Admin flow continues below
@@ -5540,7 +5570,7 @@ def show_attendance(db):
         statuses[sid] = status
         notes_dict[sid] = notes
     st.markdown("</div>", unsafe_allow_html=True)
-    if st.button("💾 حفظ الحضور", use_container_width=True, key="save_attendance_btn"):
+    if st.button("💾 حفظ الحضور", width="stretch", key="save_attendance_btn"):
         with st.spinner("جاري حفظ الحضور..."):
             records = []
             for sid, status in statuses.items():
@@ -5565,7 +5595,7 @@ def show_attendance(db):
             if sid in section_students["student_id"].values else sid
         )
         rec = rec[["record_id", "student_name", "status", "notes"]]
-        st.dataframe(rec, use_container_width=True)
+        st.dataframe(rec, width="stretch")
         
         # Teacher can only delete attendance records they created
         can_delete_attendance = True
@@ -5624,7 +5654,7 @@ def show_followup(db):
         urgent = followup[(followup.regularity_status.isin(["متقطع", "منقطع"])) & (followup.student_id.isin(responsible["student_id"]))]
         if not urgent.empty:
             urgent_display = urgent.merge(responsible[["student_id", "full_name"]], on="student_id", how="left")
-            st.dataframe(urgent_display[["full_name", "followup_date", "notes"]], use_container_width=True)
+            st.dataframe(urgent_display[["full_name", "followup_date", "notes"]], width="stretch")
         else:
             st.info("كل البنات منتظمات حالياً.")
     else:
@@ -5661,7 +5691,7 @@ def show_followup(db):
         )
         if not followup_display.empty:
             followup_display = followup_display[["record_id", "full_name", "followup_type", "regularity_status"]]
-            st.dataframe(followup_display, use_container_width=True)
+            st.dataframe(followup_display, width="stretch")
             del_followup_id = st.selectbox("اختر سجل افتقاد لحذفه", followup_display["record_id"], key="del_followup_sel")
             if st.button("حذف سجل الافتقاد"):
                 db.delete_followup_record(del_followup_id)
@@ -5767,7 +5797,7 @@ def show_followup(db):
             "submission_time": "وقت التسليم"
         })
         available_cols = [c for c in display_final.columns if c in ["اسم المسابقة", "اسم الطالبة", "الدرجة", "الدرجة الكلية", "وقت التسليم"]]
-        st.dataframe(display_final[available_cols], use_container_width=True)
+        st.dataframe(display_final[available_cols], width="stretch")
         if "score" in filtered_df.columns and "total_marks" in filtered_df.columns:
             st.markdown("---")
             st.subheader("📊 إحصائيات الفصل")
@@ -5783,7 +5813,7 @@ def show_followup(db):
                 st.subheader("🏆 ترتيب الطالبات")
                 ranking = filtered_df.groupby("اسم الطالبة")["score"].sum().reset_index().sort_values("score", ascending=False)
                 ranking.index = range(1, len(ranking) + 1)
-                st.dataframe(ranking.rename(columns={"score": "المجموع"}), use_container_width=True)
+                st.dataframe(ranking.rename(columns={"score": "المجموع"}), width="stretch")
     else:
         st.info("لا توجد نتائج مطابقة للبحث.")
 
@@ -5862,7 +5892,7 @@ def show_unified_assessments_admin(db):
                 end_date = ed.strftime("%Y-%m-%d")
                 expiry_date = end_date
 
-            if st.form_submit_button("إنشاء", use_container_width=True):
+            if st.form_submit_button("إنشاء", width="stretch"):
                 if not title.strip():
                     st.error("العنوان مطلوب.")
                 elif not stage_id:
@@ -5922,7 +5952,7 @@ def show_unified_assessments_admin(db):
             questions = db.get_quiz_questions(pick_id)
             st.markdown(f"**عدد الأسئلة:** {len(questions)}")
             if not questions.empty:
-                st.dataframe(questions[[c for c in ["question_text", "question_type", "correct_answer", "marks"] if c in questions.columns]], use_container_width=True)
+                st.dataframe(questions[[c for c in ["question_text", "question_type", "correct_answer", "marks"] if c in questions.columns]], width="stretch")
             with st.form("unified_add_question_form"):
                 qtext = st.text_area("نص السؤال*")
                 qtype = st.selectbox("نوع السؤال", ["اختيار من متعدد", "صح وخطأ", "أكمل", "إجابة قصيرة"])
@@ -5938,7 +5968,7 @@ def show_unified_assessments_admin(db):
                 correct = st.text_input("الإجابة الصحيحة*")
                 _picked_assessment_type = str(picked_row.get("assessment_type", "quiz")).strip()
                 marks = st.number_input("درجة السؤال", min_value=1, max_value=100, value=5 if _picked_assessment_type == "exam" else 1)
-                if st.form_submit_button("إضافة سؤال", use_container_width=True):
+                if st.form_submit_button("إضافة سؤال", width="stretch"):
                     if not qtext.strip() or not correct.strip():
                         st.error("نص السؤال والإجابة الصحيحة مطلوبان.")
                     else:
@@ -6109,12 +6139,12 @@ def show_unified_assessments_admin(db):
         "score": "الدرجة",
         "total_marks": "الدرجة الكلية",
         "submission_time": "وقت التسليم",
-    }), use_container_width=True)
+    }), width="stretch")
     if "score" in results.columns:
         results["score"] = pd.to_numeric(results["score"], errors="coerce").fillna(0)
         if "full_name" in results.columns and st.button("🏆 ترتيب الطالبات حسب المجموع", key="unified_rank_btn"):
             ranking = results.groupby("full_name")["score"].sum().reset_index().sort_values("score", ascending=False)
-            st.dataframe(ranking.rename(columns={"full_name": "اسم الطالبة", "score": "المجموع"}), use_container_width=True)
+            st.dataframe(ranking.rename(columns={"full_name": "اسم الطالبة", "score": "المجموع"}), width="stretch")
 
 
 # =============================================================================
@@ -6334,7 +6364,7 @@ def show_reports_page(db):
                 xaxis_title="التاريخ", yaxis_title="العدد",
                 font=dict(family="Cairo")
             )
-            st.plotly_chart(fig_line, use_container_width=True)
+            st.plotly_chart(fig_line, width="stretch")
             charts_to_export.append((fig_line, "الحضور اليومي"))
             
             # Pie chart for status distribution
@@ -6346,7 +6376,7 @@ def show_reports_page(db):
                 color_discrete_map={"حاضر": "#28a745", "غائب": "#dc3545", "متأخر": "#ffc107"}
             )
             fig_pie.update_layout(font=dict(family="Cairo"))
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
             charts_to_export.append((fig_pie, "توزيع الحالات"))
         else:
             st.info("لا توجد بيانات للأيام السبعة الماضية.")
@@ -6406,7 +6436,7 @@ def show_reports_page(db):
                     xaxis_title="الفصل", yaxis_title="العدد",
                     font=dict(family="Cairo")
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
                 charts_to_export.append((fig_bar, "مقارنة الفصول"))
             
             # Pie chart
@@ -6418,7 +6448,7 @@ def show_reports_page(db):
                 color_discrete_map={"حاضر": "#28a745", "غائب": "#dc3545", "متأخر": "#ffc107"}
             )
             fig_pie.update_layout(font=dict(family="Cairo"))
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
             charts_to_export.append((fig_pie, "توزيع الحالات"))
         else:
             st.info(f"لا توجد بيانات للشهر {month}/{year}.")
@@ -6483,7 +6513,7 @@ def show_reports_page(db):
                     plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                     font=dict(family="Cairo")
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
                 charts_to_export.append((fig_bar, "أعضاء جدد حسب الفصل"))
         else:
             st.info("لا يوجد أعضاء جدد في آخر 30 يوم.")
@@ -6534,7 +6564,7 @@ def show_reports_page(db):
                     xaxis_title="الطالبة", yaxis_title="أيام الغياب",
                     font=dict(family="Cairo")
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
                 charts_to_export.append((fig_bar, "الطالبات الغائبات"))
             else:
                 st.success("✅ لا توجد طالبات غائبات أكثر من 3 أيام هذا الشهر.")
@@ -6546,7 +6576,7 @@ def show_reports_page(db):
     # =========================================================================
     if not report_df.empty:
         st.markdown("#### 📊 بيانات التقرير")
-        st.dataframe(report_df, use_container_width=True)
+        st.dataframe(report_df, width="stretch")
     
     # =========================================================================
     # INTERACTIVE CHARTS SECTION
@@ -6577,7 +6607,7 @@ def show_reports_page(db):
                 font=dict(family="Cairo"),
                 hovermode="x unified"
             )
-            st.plotly_chart(fig_line, use_container_width=True)
+            st.plotly_chart(fig_line, width="stretch")
         else:
             st.info("لا توجد بيانات كافية لآخر 30 يوم.")
     
@@ -6609,7 +6639,7 @@ def show_reports_page(db):
                 font=dict(family="Cairo"),
                 legend_title="الحالة"
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width="stretch")
         else:
             st.info("لا توجد بيانات كافية للمقارنة بين الفصول.")
     
@@ -6627,7 +6657,7 @@ def show_reports_page(db):
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             fig_pie.update_layout(font=dict(family="Cairo"))
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
         else:
             st.info("لا توجد بيانات كافية لتوزيع الحالات.")
     
@@ -6648,7 +6678,7 @@ def show_reports_page(db):
                 data=csv_bytes,
                 file_name=f"{report_title}_{get_cairo_now().strftime('%Y-%m-%d')}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 key="export_csv_btn"
             )
         
@@ -6661,7 +6691,7 @@ def show_reports_page(db):
                     data=excel_bytes,
                     file_name=f"{report_title}_{get_cairo_now().strftime('%Y-%m-%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
+                    width="stretch",
                     key="export_excel_btn"
                 )
             except Exception as e:
@@ -6678,7 +6708,7 @@ def show_reports_page(db):
                 "event_name": "اسم الفعالية", "event_type": "النوع",
                 "event_date": "التاريخ", "location": "المكان", "status": "الحالة"
             }
-        ), use_container_width=True)
+        ), width="stretch")
 
 
 # =============================================================================
@@ -6759,14 +6789,14 @@ def show_upcoming_events(db, user, role):
                 rsvp_status = rsvp_row.iloc[0].get("rsvp_status", "") if not rsvp_row.empty else ""
                 st.success(f"✅ تم تسجيل حضورك المتوقع: {rsvp_status}")
             else:
-                if st.button("📝 تسجيل حضور متوقع", key=f"rsvp_{ev_id}", use_container_width=True):
+                if st.button("📝 تسجيل حضور متوقع", key=f"rsvp_{ev_id}", width="stretch"):
                     st.session_state[f"rsvp_event_{ev_id}"] = True
                     st.rerun()
 
             if st.session_state.get(f"rsvp_event_{ev_id}", False):
                 with st.form(f"rsvp_form_{ev_id}"):
                     rsvp_status = st.selectbox("حالة الحضور", RSVP_STATUSES)
-                    submitted = st.form_submit_button("حفظ", use_container_width=True)
+                    submitted = st.form_submit_button("حفظ", width="stretch")
                     if submitted:
                         db.add_event_rsvp({
                             "rsvp_id": str(uuid.uuid4()),
@@ -6800,7 +6830,7 @@ def add_event_form(db, user):
             location = st.text_input("المكان*")
             max_capacity = st.number_input("السعة القصوى", min_value=1, value=50)
         description = st.text_area("الوصف")
-        submitted = st.form_submit_button("💾 حفظ الفعالية", use_container_width=True)
+        submitted = st.form_submit_button("💾 حفظ الفعالية", width="stretch")
         if submitted:
             if not event_name or not location:
                 st.error("يرجى ملء اسم الفعالية والمكان")
@@ -6881,7 +6911,7 @@ def show_event_actual_attendance(db, user):
         format_func=lambda x: labels[options.index(x)] if x in options else x
     )
 
-    if st.button("💾 حفظ الحضور الفعلي", use_container_width=True):
+    if st.button("💾 حفظ الحضور الفعلي", width="stretch"):
         # Remove old records if any
         if already_recorded:
             for _, rec in existing_attendance.iterrows():
@@ -6932,7 +6962,7 @@ def show_event_actual_attendance(db, user):
         detail = attendance_df.merge(students[["student_id", "full_name"]], on="student_id", how="left")
         st.dataframe(detail[["full_name", "status", "notes"]].rename(
             columns={"full_name": "الاسم", "status": "الحالة", "notes": "ملاحظات"}
-        ), use_container_width=True)
+        ), width="stretch")
 
 
 def show_events_page(db):
@@ -7096,27 +7126,27 @@ def show_student_profile(db, student_id):
     if role in ["System Admin", "Service Manager"]:
         act_col1, act_col2, act_col3 = st.columns(3)
         with act_col1:
-            if st.button("✏️ تعديل", use_container_width=True):
+            if st.button("✏️ تعديل", width="stretch"):
                 st.session_state.edit_student_id = student_id
                 st.session_state.profile_user_id = None
                 st.rerun()
         with act_col2:
             if status == "active":
-                if st.button("⏸️ تعطيل", use_container_width=True):
+                if st.button("⏸️ تعطيل", width="stretch"):
                     db.update_student(student_id, {"status": "inactive"})
                     db.add_log(user.get("user_id", ""), f"تعطيل طالبة {student_id}", f"تم تعطيل {full_name}")
                     st.success("✅ تم التعطيل")
                     time.sleep(1)
                     st.rerun()
             else:
-                if st.button("▶️ تفعيل", use_container_width=True):
+                if st.button("▶️ تفعيل", width="stretch"):
                     db.update_student(student_id, {"status": "active"})
                     db.add_log(user.get("user_id", ""), f"تفعيل طالبة {student_id}", f"تم تفعيل {full_name}")
                     st.success("✅ تم التفعيل")
                     time.sleep(1)
                     st.rerun()
         with act_col3:
-            if st.button("🗑️ حذف", use_container_width=True):
+            if st.button("🗑️ حذف", width="stretch"):
                 db.delete_student(student_id)
                 db.add_log(user.get("user_id", ""), f"حذف طالبة {student_id}", f"تم حذف {full_name}")
                 st.success("✅ تم الحذف")
@@ -7126,7 +7156,7 @@ def show_student_profile(db, student_id):
     elif role == "Teacher":
         st.info("👁️ وضع العرض فقط - لا يمكنك التعديل على بيانات الطالبات")
     
-    if st.button("🔙 العودة", use_container_width=True):
+    if st.button("🔙 العودة", width="stretch"):
         st.session_state.profile_user_id = None
         st.rerun()
     
@@ -7280,23 +7310,23 @@ def show_user_profile(db, user_id):
     st.markdown("---")
     act_col1, act_col2, act_col3, act_col4 = st.columns(4)
     with act_col1:
-        if st.button("✏️ تعديل", use_container_width=True):
+        if st.button("✏️ تعديل", width="stretch"):
             st.session_state.edit_user_id = user_id
             st.session_state.profile_user_id = None
             st.rerun()
     with act_col2:
         if status == "active":
-            if st.button("⏸️ تعطيل", use_container_width=True):
+            if st.button("⏸️ تعطيل", width="stretch"):
                 db.update_user(user_id, {"status": "inactive"})
                 db.add_log(st.session_state.user.get("user_id", ""), f"تعطيل مستخدم {user_id}", f"تم تعطيل {user.get('full_name', '')}")
                 st.rerun()
         else:
-            if st.button("▶️ تفعيل", use_container_width=True):
+            if st.button("▶️ تفعيل", width="stretch"):
                 db.update_user(user_id, {"status": "active"})
                 db.add_log(st.session_state.user.get("user_id", ""), f"تفعيل مستخدم {user_id}", f"تم تفعيل {user.get('full_name', '')}")
                 st.rerun()
     with act_col3:
-        if st.button("🗑️ حذف", use_container_width=True):
+        if st.button("🗑️ حذف", width="stretch"):
             if user_id == st.session_state.user.get("user_id"):
                 st.error("لا يمكنك حذف حسابك الحالي!")
             else:
@@ -7307,7 +7337,7 @@ def show_user_profile(db, user_id):
                 time.sleep(1)
                 st.rerun()
     with act_col4:
-        if st.button("🔙 العودة للقائمة", use_container_width=True):
+        if st.button("🔙 العودة للقائمة", width="stretch"):
             st.session_state.profile_user_id = None
             st.rerun()
 
@@ -7370,7 +7400,7 @@ def show_logs(db):
         st.markdown(f"**عدد السجلات:** {len(filtered_logs)}")
         st.dataframe(
             filtered_logs[available].sort_values("timestamp", ascending=False),
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "timestamp": "الوقت",
                 "username": "اسم المستخدم",
@@ -7546,7 +7576,7 @@ def show_notifications_panel(db):
         else:
             # ===== زر قراءة الكل =====
             if unread_count > 0:
-                if st.button("✅ تحديد الكل كمقروء", use_container_width=True, key="mark_all_read_btn"):
+                if st.button("✅ تحديد الكل كمقروء", width="stretch", key="mark_all_read_btn"):
                     for _, notif in filtered.iterrows():
                         nid = notif.get("notification_id", "")
                         if nid and str(notif.get("is_read", "False")).strip().lower() != "true":
@@ -7608,7 +7638,7 @@ def show_notifications_panel(db):
                 act_cols = st.columns([1, 1, 3])
                 if not nread:
                     with act_cols[0]:
-                        if st.button("✅ قراءة", key=f"read_{nid}", use_container_width=True):
+                        if st.button("✅ قراءة", key=f"read_{nid}", width="stretch"):
                             db.mark_notification_read(nid)
                             st.rerun()
                 else:
@@ -7617,7 +7647,7 @@ def show_notifications_panel(db):
 
                 # زر حذف الإشعار
                 with act_cols[1]:
-                    if st.button("🗑️ حذف", key=f"del_notif_{nid}", use_container_width=True):
+                    if st.button("🗑️ حذف", key=f"del_notif_{nid}", width="stretch"):
                         try:
                             all_notifs = db.get_notifications()
                             if not all_notifs.empty and "notification_id" in all_notifs.columns:
@@ -7676,7 +7706,7 @@ def show_notifications_panel(db):
                     notif_title = st.text_input("عنوان الإشعار*", placeholder="أدخل عنوان الإشعار")
                     notif_message = st.text_area("نص الإشعار*", placeholder="أدخل نص الإشعار", height=120)
 
-                    submitted = st.form_submit_button("📨 إرسال الإشعار", use_container_width=True)
+                    submitted = st.form_submit_button("📨 إرسال الإشعار", width="stretch")
 
                     if submitted:
                         if not notif_title or not notif_message:
@@ -7829,26 +7859,45 @@ def _fit_card_font(draw, text, start_size, max_width, bold):
 
 @st.cache_data(show_spinner=False)
 def _load_card_template_image_cached(image_ref, mtime):
-    """تحميل صورة تصميم القالب مع تخزين مؤقت (caching) لتسريع توليد البطاقات.
+    """
+    تحميل صورة تصميم القالب مع تخزين مؤقت (caching) لتسريع توليد البطاقات.
     ترتيب المصادر لضمان بقاء التصميم عند إعادة تشغيل التطبيق:
-    1) الصورة المخزنة داخل ورقة البيانات (base64) — تبقى على السحابة ولا تُفقد.
-    2) مرجع ملف محلي داخل مجلد card_templates (قديم/مؤقت — للتوافق فقط).
+    1) مرجع ملف محلي (file:filename.ext) داخل مجلد card_templates.
+    2) مرجع base64 قديم (للتوافق مع البيانات المخزنة سابقاً).
     3) ملف المستودع الثابت template_1.png كبديل آمن أخير."""
     ref = str(image_ref or "").strip()
+    
+    # Handle file: reference format (new storage method)
+    if ref.startswith("file:"):
+        fname = ref[5:].strip()
+        path = os.path.join(CARD_TEMPLATES_DIR, fname)
+        if os.path.exists(path):
+            try:
+                return Image.open(path).convert("RGB")
+            except Exception:
+                pass
+    
+    # Handle legacy base64: reference format (backward compatibility)
     if ref.startswith("base64:"):
         try:
             img_bytes = base64.b64decode(ref[len("base64:"):])
             return Image.open(BytesIO(img_bytes)).convert("RGB")
         except Exception:
             pass
+    
+    # Try as a direct file path (legacy support)
     if ref:
         try:
             fname = os.path.basename(ref.replace("file:", ""))
             path = os.path.join(CARD_TEMPLATES_DIR, fname)
             if os.path.exists(path):
                 return Image.open(path).convert("RGB")
+            if os.path.exists(ref):
+                return Image.open(ref).convert("RGB")
         except Exception:
             pass
+    
+    # Fallback to default template image
     return _load_repo_card_template_image()
 
 
@@ -7865,15 +7914,16 @@ def _load_repo_card_template_image():
 
 def load_card_template_image(template_row):
     """إرجاع PIL.Image لقالب البطاقة أو None إذا لم توجد الصورة.
-    المصدر الأساسي هو الصورة المخزنة في ورقة البيانات (base64) إن وُجدت،
-    ثم الملفات المحلية القديمة، وأخيراً ملف المستودع الثابت template_1.png."""
+    يدعم مراجع الملفات (file:filename.ext) والمراجع القديمة (base64:) للتوافق."""
     image_ref = str((template_row or {}).get("image_ref", "") or "").strip()
     mtime = 0
     try:
+        # Get filename from file: reference or legacy formats
         fname = os.path.basename(image_ref.replace("base64:", "").replace("file:", ""))
-        p = os.path.join(CARD_TEMPLATES_DIR, fname)
-        if os.path.exists(p):
-            mtime = os.path.getmtime(p)
+        if fname:
+            p = os.path.join(CARD_TEMPLATES_DIR, fname)
+            if os.path.exists(p):
+                mtime = os.path.getmtime(p)
         elif os.path.exists(CARD_TEMPLATE_REPO_IMAGE):
             mtime = os.path.getmtime(CARD_TEMPLATE_REPO_IMAGE)
     except Exception:
@@ -7881,11 +7931,11 @@ def load_card_template_image(template_row):
     return _load_card_template_image_cached(image_ref or "template_1.png", mtime)
 
 
-def save_card_template_image(uploaded_file, max_dim=1200, max_base64_chars=44000):
+def save_card_template_image(uploaded_file, max_dim=1200):
     """
     حفظ صورة تصميم القالب بحيث تبقى حتى بعد إعادة تشغيل التطبيق.
-    تُحفظ نسخة داخل ورقة البيانات (image_ref = base64) لضمان بقائها على السحابة،
-    مع نسخة ملف محلية قديمة للتوافق مع المراجع القديمة.
+    تُحفظ الصورة كملف محلي داخل مجلد card_templates،
+    ويُخزَّن مرجع الملف (file:filename.ext) فقط في ورقة البيانات.
     Returns: (image_ref, width, height) أو يرفع ValueError برسالة عربية.
     """
     try:
@@ -7896,23 +7946,17 @@ def save_card_template_image(uploaded_file, max_dim=1200, max_base64_chars=44000
     if w > max_dim or h > max_dim:
         scale = min(max_dim / w, max_dim / h)
         img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
-    best_b64 = None
-    for quality in (85, 75, 60, 45):
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=quality)
-        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-        if len(b64) <= max_base64_chars:
-            best_b64 = b64
-            break
-        best_b64 = b64
-    image_ref = "base64:" + best_b64
+    
+    # Save image to local file and return a file reference
     try:
         os.makedirs(CARD_TEMPLATES_DIR, exist_ok=True)
-        fname = f"tpl_{uuid.uuid4().hex[:10]}.jpg"
+        fname = f"tpl_{uuid.uuid4().hex[:12]}.jpg"
         path = os.path.join(CARD_TEMPLATES_DIR, fname)
         img.save(path, format="JPEG", quality=88)
-    except Exception:
-        pass
+        image_ref = f"file:{fname}"
+    except Exception as e:
+        raise ValueError(f"تعذر حفظ ملف الصورة محلياً: {str(e)}")
+    
     return image_ref, img.size[0], img.size[1]
 
 
@@ -8223,7 +8267,7 @@ def show_card_templates_page(db):
     with st.expander("➕ إضافة Template جديد", expanded=card_tpls.empty):
         new_name = st.text_input("اسم القالب*", placeholder="مثال: بطاقة بنات - إعدادي", key="new_tpl_name")
         new_img = st.file_uploader("🖼️ ارفع صورة تصميم البطاقة الجاهزة (PNG / JPG)", type=["png", "jpg", "jpeg"], key="new_tpl_img")
-        if st.button("💾 حفظ التصميم", use_container_width=True, key="save_new_tpl"):
+        if st.button("💾 حفظ التصميم", width="stretch", key="save_new_tpl"):
             if not new_name.strip():
                 st.error("⚠️ اسم القالب مطلوب.")
             elif new_img is None:
@@ -8281,7 +8325,7 @@ def show_card_templates_page(db):
         c_set1, c_set2 = st.columns(2)
         with c_set1:
             rename_val = st.text_input("اسم القالب", value=str(tpl_row.get("template_name", "")), key=f"rename_{tpl_id}")
-            if st.button("✏️ حفظ الاسم الجديد", key=f"rename_btn_{tpl_id}", use_container_width=True):
+            if st.button("✏️ حفظ الاسم الجديد", key=f"rename_btn_{tpl_id}", width="stretch"):
                 if rename_val.strip():
                     db.update_card_template(tpl_id, {"template_name": rename_val.strip()})
                     st.success("✅ تم تحديث اسم القالب")
@@ -8290,14 +8334,14 @@ def show_card_templates_page(db):
             if str(tpl_row.get("is_default", "")).lower() == "true":
                 st.success("⭐ هذا القالب هو الافتراضي")
             else:
-                if st.button("⭐ تعيين كافتراضي", key=f"default_btn_{tpl_id}", use_container_width=True):
+                if st.button("⭐ تعيين كافتراضي", key=f"default_btn_{tpl_id}", width="stretch"):
                     db.set_default_card_template(tpl_id)
                     st.success("✅ تم التعيين كافتراضي")
                     time.sleep(1)
                     st.rerun()
         with c_set2:
             replace_img = st.file_uploader("🔄 استبدال صورة التصميم", type=["png", "jpg", "jpeg"], key=f"repl_img_{tpl_id}")
-            if st.button("🔄 استبدال الصورة", key=f"repl_btn_{tpl_id}", use_container_width=True):
+            if st.button("🔄 استبدال الصورة", key=f"repl_btn_{tpl_id}", width="stretch"):
                 if replace_img is None:
                     st.error("⚠️ اختر صورة جديدة أولاً.")
                 else:
@@ -8310,7 +8354,7 @@ def show_card_templates_page(db):
                     except ValueError as ve:
                         st.error(f"❌ {ve}")
         confirm_del = st.checkbox("أنا متأكد من حذف هذا القالب نهائياً", key=f"del_confirm_{tpl_id}")
-        if st.button("🗑️ حذف القالب", disabled=not confirm_del, key=f"del_btn_{tpl_id}", use_container_width=True):
+        if st.button("🗑️ حذف القالب", disabled=not confirm_del, key=f"del_btn_{tpl_id}", width="stretch"):
             try:
                 fname = os.path.basename(str(tpl_row.get("image_ref", "")).replace("file:", ""))
                 p = os.path.join(CARD_TEMPLATES_DIR, fname)
@@ -8396,7 +8440,7 @@ def show_card_templates_page(db):
                         disabled=selected_el in ("qr", "photo"),
                     )
                     bd = st.checkbox("خط عريض (Bold)", value=bool(spec.get("bold", False)), disabled=selected_el in ("qr", "photo"))
-                if st.form_submit_button("💾 حفظ الخصائص", use_container_width=True, disabled=selected_el in ("qr", "photo")):
+                if st.form_submit_button("💾 حفظ الخصائص", width="stretch", disabled=selected_el in ("qr", "photo")):
                     elements[selected_el].update({
                         "font_size": int(fs), "font_color": fc, "align": al, "bold": bool(bd),
                     })
@@ -8407,7 +8451,7 @@ def show_card_templates_page(db):
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ فشل حفظ الخصائص: {e}")
-            if st.button("🗑️ حذف هذا العنصر من القالب", key=f"el_del_{tpl_id}_{selected_el}", use_container_width=True):
+            if st.button("🗑️ حذف هذا العنصر من القالب", key=f"el_del_{tpl_id}_{selected_el}", width="stretch"):
                 elements.pop(selected_el, None)
                 try:
                     db.update_card_template(tpl_id, {"elements_json": json.dumps(elements, ensure_ascii=False)})
@@ -8441,18 +8485,18 @@ def show_card_templates_page(db):
             format_func=lambda x: f"{members_map[x]['member'].get('full_name', '')} ({members_map[x]['member'].get('section_id', '') or 'بدون فصل'})",
             key=f"preview_member_{tpl_id}",
         )
-        if st.button("🔍 إنشاء المعاينة", use_container_width=True, key=f"preview_btn_{tpl_id}"):
+        if st.button("🔍 إنشاء المعاينة", width="stretch", key=f"preview_btn_{tpl_id}"):
             entry = members_map[prev_pick]
             data = build_member_card_data(entry["member"], entry["sections"], entry["stages"])
             try:
                 png = render_member_card(tpl_row, data)
-                st.image(png, caption=f"معاينة: {data['name']}", use_container_width=False)
+                st.image(png, caption=f"معاينة: {data['name']}", width="content")
                 st.download_button(
                     label="⬇️ تحميل البطاقة (PNG)",
                     data=png,
                     file_name=_card_filename_for({**entry["member"], "member_id": prev_pick}),
                     mime="image/png",
-                    use_container_width=True,
+                    width="stretch",
                     key=f"preview_dl_{tpl_id}",
                 )
             except ValueError as ve:
