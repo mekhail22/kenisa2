@@ -2555,6 +2555,7 @@ def student_logout(db=None):
             pass
     student_keys = [
         "student_logged_in", "current_student", "student_dashboard_page", "sidebar_open",
+        "selected_login_role",
     ] + ASSESSMENT_SESSION_KEYS + [
         "quiz_question_index", "quiz_answers", "quiz_end_time", "quiz_attempt_id",
         "quiz_last_saved_answers", "quiz_confirm_finish", "quiz_start_time",
@@ -2799,6 +2800,81 @@ def show_initialization(db):
         st.stop()
 
 
+def _render_role_selector():
+    """
+    Render the five account-type role selector buttons on the login page.
+    Returns the selected role string (or None if nothing selected yet).
+    Uses st.session_state.selected_login_role to persist the choice across reruns.
+    """
+    roles = [
+        ("System Admin",   "مدير النظام",  "👨‍💼", "admin"),
+        ("Father Account", "الأب الكاهن",  "⛪",  "priest"),
+        ("Service Manager","أمين الخدمة",  "👥",  "leader"),
+        ("Teacher",        "مدرس المدرسة", "🧑‍🏫", "teacher"),
+        ("Student",        "الطالب",       "🎓",  "student"),
+    ]
+
+    selected = st.session_state.get("selected_login_role")
+
+    st.markdown("""
+    <style>
+    .role-selector-wrap { margin: 0 auto 1.2rem auto; max-width: 720px; }
+    .role-selector-title {
+        text-align: center; font-size: 0.95rem; font-weight: 600;
+        color: #475569; margin-bottom: 0.6rem;
+    }
+    .role-btn {
+        flex: 1 1 calc(33% - 0.5rem);
+        min-width: 120px;
+        padding: 0.6rem 0.5rem !important;
+        border-radius: 12px !important;
+        border: 2px solid #e2e8f0 !important;
+        background: #ffffff !important;
+        color: #334155 !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-align: center;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.35rem;
+        line-height: 1.3;
+    }
+    .role-btn:hover {
+        border-color: #94a3b8 !important;
+        background: #f8fafc !important;
+        transform: translateY(-1px);
+    }
+    @media (max-width: 600px) {
+        .role-btn { flex: 1 1 calc(50% - 0.5rem); min-width: 100px; }
+    }
+    </style>
+    <div class="role-selector-wrap">
+        <div class="role-selector-title">اختر نوع الحساب للدخول:</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    buttons = [col1, col2, col3, col4, col5]
+    new_selection = None
+
+    for idx, (btn_col, (role_val, label, icon, css_class)) in enumerate(zip(buttons, roles)):
+        with btn_col:
+            btn_label = f"{icon} {label}"
+            if st.button(btn_label, key=f"role_btn_{role_val}", width="stretch"):
+                new_selection = role_val
+
+    return new_selection
+
+
+def _clear_login_role_selection():
+    """Reset the stored login-role selection (used on logout)."""
+    if "selected_login_role" in st.session_state:
+        del st.session_state.selected_login_role
+
+
 def show_login_page(db, jwt_secret):
     render_login_top_bar()
     # Hero banner for login page
@@ -2822,42 +2898,85 @@ def show_login_page(db, jwt_secret):
     }
     </style>
     """, unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["🔐 دخول الخدام", "📝 تسجيل دخول الطالبات"])
-    with tab1:
-        with st.form("login_form"):
-            username = st.text_input("اسم المستخدم", placeholder="أدخل اسم المستخدم").strip()
-            password = st.text_input("كلمة المرور", type="password", placeholder="أدخل كلمة المرور").strip()
-            if st.form_submit_button("تسجيل الدخول", width="stretch"):
-                if not username or not password:
-                    st.error("يرجى إدخال اسم المستخدم وكلمة المرور")
-                else:
-                    with st.spinner("جاري التحقق..."):
-                        users = db.get_users()
-                        user_row = users[users.username == username]
-                        if user_row.empty:
-                            st.error("اسم المستخدم غير موجود")
-                        else:
-                            user = user_row.iloc[0].to_dict()
-                            user_status = get_user_status(user)
-                            if user_status != "active":
-                                db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", f"الحساب غير نشط (الحالة: {user_status})")
-                                st.error(f"🚫 هذا الحساب {user_status}. يرجى التواصل مع مسؤول النظام.")
-                            elif verify_password(password, user.get("password", "")):
-                                token = generate_token(user, jwt_secret)
-                                st.session_state.token = token
-                                st.session_state.user = user
-                                st.session_state.authenticated = True
-                                st.session_state.last_login_time = get_cairo_now().isoformat()
-                                st.session_state.menu_choice = "🏠 لوحة التحكم"
-                                st.session_state.show_sidebar = True
-                                db.add_log(user["user_id"], "تسجيل دخول", "تم تسجيل الدخول بنجاح")
-                                st.success("تم تسجيل الدخول بنجاح!")
-                                time.sleep(1)
-                                st.rerun()
+
+    # ---- Role selector: five account-type buttons ----
+    new_role = _render_role_selector()
+    if new_role is not None:
+        st.session_state.selected_login_role = new_role
+        st.rerun()
+
+    selected_role = st.session_state.get("selected_login_role")
+
+    # Show a hint if no role selected yet
+    if selected_role is None:
+        st.info("👆 اختر نوع الحساب أعلاه ثم أدخل بيانات الدخول.")
+
+    # Determine which tab to show based on selected role
+    show_staff_tab = selected_role in ["System Admin", "Father Account", "Service Manager", "Teacher"]
+    show_student_tab = selected_role == "Student"
+
+    # Build tabs dynamically based on selection
+    tab_labels = []
+    if show_staff_tab:
+        tab_labels.append("🔐 دخول الخدام")
+    if show_student_tab:
+        tab_labels.append("📝 تسجيل دخول الطالبات")
+    if not tab_labels:
+        tab_labels = ["🔐 دخول الخدام", "📝 تسجيل دخول الطالبات"]
+
+    tabs = st.tabs(tab_labels)
+    if not isinstance(tabs, (list, tuple)):
+        tabs = [tabs]
+
+    tab_idx = 0
+    if show_staff_tab:
+        with tabs[tab_idx]:
+            with st.form("login_form"):
+                username = st.text_input("اسم المستخدم", placeholder="أدخل اسم المستخدم").strip()
+                password = st.text_input("كلمة المرور", type="password", placeholder="أدخل كلمة المرور").strip()
+                if st.form_submit_button("تسجيل الدخول", width="stretch"):
+                    if not username or not password:
+                        st.error("يرجى إدخال اسم المستخدم وكلمة المرور")
+                    elif selected_role is None:
+                        st.error("يرجى اختيار نوع الحساب أولاً")
+                    else:
+                        with st.spinner("جاري التحقق..."):
+                            users = db.get_users()
+                            user_row = users[users.username == username]
+                            if user_row.empty:
+                                st.error("اسم المستخدم غير موجود")
                             else:
-                                db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", "كلمة مرور خاطئة")
-                                st.error("كلمة المرور غير صحيحة")
-        with tab2:
+                                user = user_row.iloc[0].to_dict()
+                                # Verify the authenticated user's role matches the selected role
+                                user_role = user.get("role", "")
+                                if user_role != selected_role:
+                                    db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة",
+                                               f"الدور الفعلي ({user_role}) لا يتطابق مع النوع المختار ({selected_role})")
+                                    st.error("هذا الحساب غير مصرح له بالدخول من هذا النوع. اختر نوع الحساب الصحيح.")
+                                else:
+                                    user_status = get_user_status(user)
+                                    if user_status != "active":
+                                        db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", f"الحساب غير نشط (الحالة: {user_status})")
+                                        st.error(f"🚫 هذا الحساب {user_status}. يرجى التواصل مع مسؤول النظام.")
+                                    elif verify_password(password, user.get("password", "")):
+                                        token = generate_token(user, jwt_secret)
+                                        st.session_state.token = token
+                                        st.session_state.user = user
+                                        st.session_state.authenticated = True
+                                        st.session_state.last_login_time = get_cairo_now().isoformat()
+                                        st.session_state.menu_choice = "🏠 لوحة التحكم"
+                                        st.session_state.show_sidebar = True
+                                        db.add_log(user["user_id"], "تسجيل دخول", "تم تسجيل الدخول بنجاح")
+                                        st.success("تم تسجيل الدخول بنجاح!")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    else:
+                                        db.add_log(user.get("user_id", ""), "محاولة دخول فاشلة", "كلمة مرور خاطئة")
+                                        st.error("كلمة المرور غير صحيحة")
+        tab_idx += 1
+
+    if show_student_tab:
+        with tabs[tab_idx]:
             st.subheader("تسجيل دخول الطالبات")
             st.info("أدخلي كود الطالبة وكلمة المرور الخاصة بكِ للدخول إلى حسابك.")
             with st.form("student_login_form"):
@@ -2875,7 +2994,7 @@ def show_login_page(db, jwt_secret):
                                 pass
                             students = db.get_students()
                             student_match = students[
-                                (students.student_code.astype(str).str.strip() == code) & 
+                                (students.student_code.astype(str).str.strip() == code) &
                                 (students.student_password.astype(str).str.strip() == passwd)
                             ]
                             if student_match.empty:
@@ -2886,6 +3005,8 @@ def show_login_page(db, jwt_secret):
                                 if student_status != "active":
                                     st.error("🚫 هذا الحساب غير نشط. يرجى التواصل مع مسؤول النظام.")
                                 else:
+                                    # Clear staff-role selection since student uses separate flow
+                                    _clear_login_role_selection()
                                     st.session_state.student_logged_in = True
                                     st.session_state.current_student = student
                                     st.session_state.student_dashboard_page = "🏠 الرئيسية"
@@ -2896,7 +3017,8 @@ def show_login_page(db, jwt_secret):
                                     st.success(f"مرحباً {student.get('full_name', '')}! تم تسجيل الدخول بنجاح.")
                                     time.sleep(1)
                                     st.rerun()
-        return 0
+        tab_idx += 1
+    return 0
 
 
 def grade_attempt(db, quiz_id, answers_dict):
